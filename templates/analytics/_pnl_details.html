@@ -1,0 +1,73 @@
+{% load fin_tags %}
+{# Уровень 2 — расширенный анализ P&L (рендерится в одном ответе, без доп. запроса) #}
+
+<div class="small text-muted mt-1">
+  Сравнение с {{ explanation.periods.previous.label }}:
+  P&L был {{ explanation.pnl_previous }} UZS, изменение
+  <span class="{% if explanation.delta >= 0 %}text-success{% else %}text-danger{% endif %}">
+    {{ explanation.delta }}
+  </span> UZS.
+</div>
+
+{# Разбивка по 3 компонентам P&L с динамикой #}
+<table class="table table-sm mt-2">
+  <thead class="table-light"><tr>
+    <th>Компонент</th><th class="text-end">Текущий</th><th class="text-end">Предыдущий</th><th class="text-end">Δ</th>
+  </tr></thead>
+  <tbody>
+    <tr><td>Операционный (доходы−расходы)</td>
+      <td class="text-end">{{ explanation.components.operational.current }}</td>
+      <td class="text-end">{{ explanation.components.operational.previous }}</td>
+      <td class="text-end {% if explanation.components.operational.delta >= 0 %}text-success{% else %}text-danger{% endif %}">{{ explanation.components.operational.delta }}</td>
+    </tr>
+    <tr><td>Доход от вкладов</td>
+      <td class="text-end">{{ explanation.components.deposits.current }}</td>
+      <td class="text-end">{{ explanation.components.deposits.previous }}</td>
+      <td class="text-end {% if explanation.components.deposits.delta >= 0 %}text-success{% else %}text-danger{% endif %}">{{ explanation.components.deposits.delta }}</td>
+    </tr>
+    <tr><td>Изменение стоимости долей</td>
+      <td class="text-end">{{ explanation.components.securities.current }}</td>
+      <td class="text-end">{{ explanation.components.securities.previous }}</td>
+      <td class="text-end {% if explanation.components.securities.delta >= 0 %}text-success{% else %}text-danger{% endif %}">{{ explanation.components.securities.delta }}</td>
+    </tr>
+  </tbody>
+</table>
+
+{# Таблица вклада категорий в изменение P&L #}
+<h6 class="mt-3">Вклад категорий в изменение P&L</h6>
+<table class="table table-sm">
+  <thead class="table-light"><tr>
+    <th>Категория</th><th class="text-end">Текущий</th><th class="text-end">Предыдущий</th><th class="text-end">Δ</th><th class="text-end">% измен.</th>
+  </tr></thead>
+  <tbody>
+  {% for f in explanation.factors %}
+    <tr>
+      <td>{{ f.category }}</td>
+      <td class="text-end">{{ f.current }}</td>
+      <td class="text-end">{{ f.previous }}</td>
+      <td class="text-end {% if f.delta >= 0 %}text-success{% else %}text-danger{% endif %}">{{ f.delta }}</td>
+      <td class="text-end text-muted">{{ f.pct_of_delta }}%</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="5" class="text-center text-muted">нет данных</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{# Аномальные транзакции #}
+{% if explanation.anomalies %}
+<h6 class="mt-3">Аномальные операции</h6>
+<ul class="small">
+  {% for a in explanation.anomalies %}
+    <li>
+      Обнаружена нетипичная операция: «{{ a.category }}», {{ a.amount }} UZS, {{ a.date|date:"d.m.Y" }}
+      — в {{ a.ratio }} раза больше средней транзакции по этой категории ({{ a.avg }} UZS).
+      {% if a.description %}<span class="text-muted">({{ a.description }})</span>{% endif %}
+    </li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{# Мини-график P&L по компонентам (stacked bar, 6 периодов) #}
+<h6 class="mt-3">P&L по компонентам (6 периодов)</h6>
+<canvas id="compChart" height="100"></canvas>

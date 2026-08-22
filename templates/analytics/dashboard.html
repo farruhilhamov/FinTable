@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load fin_tags %}
 {% block title %}Дашборд — FinTable{% endblock %}
 {% block content %}
 <h2 class="mb-4">Дашборд</h2>
@@ -13,57 +14,130 @@
 </div>
 {% endif %}
 
+{# Фильтр периода (по умолчанию месяц-к-дате, значения в query-параметрах) #}
+<form method="get" class="row g-2 mb-3 align-items-end">
+  <div class="col-auto">
+    <label class="form-label small mb-0">С</label>
+    <input type="date" name="date_from" value="{{ date_from }}" class="form-control form-control-sm">
+  </div>
+  <div class="col-auto">
+    <label class="form-label small mb-0">По</label>
+    <input type="date" name="date_to" value="{{ date_to }}" class="form-control form-control-sm">
+  </div>
+  <div class="col-auto"><button class="btn btn-primary btn-sm">Применить</button></div>
+</form>
+
 <div class="row g-3 mb-4">
   <div class="col-md-4">
-    <div class="card card-stat shadow-sm">
+    <div class="card card-stat shadow-sm h-100">
       <div class="card-body">
         <div class="text-muted small">Net Worth</div>
         <div class="stat-value">{{ net_worth }} UZS</div>
+        <table class="table table-sm mt-2 mb-0 small">
+          {% for c in nw_breakdown.components %}
+          <tr>
+            <td>
+              <a href="{{ c.url }}" class="text-decoration-none">{{ c.label }}</a>
+            </td>
+            <td class="text-end">{{ c.value }}</td>
+            <td class="text-end text-muted">{{ c.pct }}%</td>
+          </tr>
+          {% endfor %}
+        </table>
       </div>
     </div>
   </div>
   <div class="col-md-4">
-    <div class="card card-stat shadow-sm">
+    <div class="card card-stat shadow-sm h-100">
       <div class="card-body">
-        <div class="text-muted small">P&L за {{ pnl_month_label }}</div>
+        <div class="text-muted small">Структура капитала</div>
+        <canvas id="nwPie" height="160"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card card-stat shadow-sm h-100">
+      <div class="card-body">
+        <div class="text-muted small">P&L за {{ pnl_period_label }}</div>
         <div class="stat-value {% if pnl.total >= 0 %}text-success{% else %}text-danger{% endif %}">
           {{ pnl.total }} UZS
         </div>
         <div class="small text-muted">
-          транзакции: {{ pnl.transactions }} · вклады: {{ pnl.deposits }} · бумаги: {{ pnl.securities }}
+          опер.: {{ pnl.transactions }} · вклады: {{ pnl.deposits }} · бумаги: {{ pnl.securities }}
         </div>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card card-stat shadow-sm">
-      <div class="card-body">
-        <div class="text-muted small">Последние транзакции</div>
-        <ul class="list-unstyled mb-0 small">
-          {% for t in recent_transactions %}
-            <li>
-              <span class="badge {% if t.type == 'income' %}bg-success{% else %}bg-danger{% endif %}">{{ t.get_type_display }}</span>
-              {{ t.amount }} — {{ t.category.name }} <span class="text-muted">{{ t.date|date:"d.m" }}</span>
-            </li>
-          {% empty %}
-            <li class="text-muted">ещё нет транзакций</li>
-          {% endfor %}
-        </ul>
+        {# Объяснение P&L — уровень 1 (всегда виден) #}
+        <p class="small mt-2 mb-0">{{ explanation.summary_text }}</p>
+        <details class="mt-2">
+          <summary class="small text-primary">Показать подробнее</summary>
+          {% include "analytics/_pnl_details.html" %}
+        </details>
       </div>
     </div>
   </div>
 </div>
 
-<div class="card shadow-sm">
+<div class="card shadow-sm mb-4">
   <div class="card-body">
     <h5 class="card-title">Динамика капитала (12 мес.)</h5>
     <canvas id="nwChart" height="100"></canvas>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h5 class="card-title">Последние транзакции</h5>
+    <ul class="list-unstyled mb-0 small">
+      {% for t in recent_transactions %}
+        <li>
+          <span class="badge {% if t.type == 'income' %}bg-success{% else %}bg-danger{% endif %}">{{ t.get_type_display }}</span>
+          {{ t.amount }} — {{ t.category.name }} <span class="text-muted">{{ t.date|date:"d.m" }}</span>
+        </li>
+      {% empty %}
+        <li class="text-muted">ещё нет транзакций</li>
+      {% endfor %}
+    </ul>
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+// Pie-диаграмма структуры Net Worth (3 укрупнённых сегмента).
+const urls = {{ nw_breakdown_urls|safe }};
+const pieEl = document.getElementById('nwPie');
+if (pieEl && urls.length) {
+  new Chart(pieEl, {
+    type: 'pie',
+    data: {
+      labels: {{ nw_breakdown_labels|safe }},
+      datasets: [{
+        data: {{ nw_breakdown_values|safe }},
+        backgroundColor: ['#0d6efd', '#198754', '#ffc107'],
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              const v = ctx.parsed;
+              const total = ctx.dataset.data.reduce((a,b)=>a+Number(b),0);
+              const pct = total ? (v/total*100).toFixed(1) : 0;
+              return `${ctx.label}: ${v} UZS (${pct}%)`;
+            }
+          }
+        },
+        legend: { display: urls.length > 1 }
+      },
+      onClick: function(_evt, els) {
+        if (els.length && urls[els[0].index]) window.location = urls[els[0].index];
+      }
+    }
+  });
+}
+
+// Динамика Net Worth.
 const ctx = document.getElementById('nwChart').getContext('2d');
 new Chart(ctx, {
   type: 'line',
@@ -80,5 +154,26 @@ new Chart(ctx, {
   },
   options: { responsive: true, scales: { y: { beginAtZero: false } } }
 });
+
+// P&L по компонентам (stacked bar, 6 периодов) — ленивая инициализация,
+// т.к. canvas лежит внутри свёрнутого <details>.
+function initCompChart() {
+  const el = document.getElementById('compChart');
+  if (!el || el.dataset.bound) return;
+  el.dataset.bound = '1';
+  new Chart(el, {
+    type: 'bar',
+    data: {
+      labels: {{ comp_hist_labels|safe }},
+      datasets: [
+        { label: 'Операционный', data: {{ comp_hist_operational|safe }}, backgroundColor: '#0d6efd' },
+        { label: 'Вклады', data: {{ comp_hist_deposits|safe }}, backgroundColor: '#198754' },
+        { label: 'Бумаги', data: {{ comp_hist_securities|safe }}, backgroundColor: '#ffc107' },
+      ]
+    },
+    options: { responsive: true, scales: { x: { stacked: true }, y: { stacked: true } } }
+  });
+}
+document.querySelectorAll('details').forEach(d => d.addEventListener('toggle', initCompChart));
 </script>
 {% endblock %}

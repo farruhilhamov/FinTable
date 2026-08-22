@@ -9,6 +9,16 @@
   <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary btn-sm">Применить</button></div>
 </form>
 
+{# Текстовая сводка-объяснение P&L #}
+<div class="alert alert-light border">
+  <strong>P&L за {{ pnl_period_label }}: {{ pnl.total }} UZS.</strong>
+  <span class="small">{{ explanation.summary_text }}</span>
+  <details class="mt-2">
+    <summary class="small text-primary">Показать подробнее</summary>
+    {% include "analytics/_pnl_details.html" %}
+  </details>
+</div>
+
 <div class="row g-3 mb-4">
   <div class="col-md-6">
     <div class="card shadow-sm"><div class="card-body">
