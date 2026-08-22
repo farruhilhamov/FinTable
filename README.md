@@ -98,8 +98,43 @@ securities/       Security, SecurityValuation
 analytics/        services.py (calculate_pnl, calculate_net_worth, динамика),
                   views (dashboard, stats), tests
 importexport/     spec.py (CSV-спецификация, экспорт, импорт, upsert), views
+onboarding/       Wizard первичного заполнения профиля (formtools),
+                  UserProfile, формы, wizard, preview-эндпоинт, settings
 templates/        base.html + шаблоны по приложениям
 ```
+
+## Wizard первичного заполнения (модуль `onboarding`)
+
+Пошаговый мастер (`django-formtools`, `NamedUrlSessionWizardView`) запускается
+**автоматически после регистрации** и проводит пользователя по 5 шагам:
+
+1. Приветствие + предупреждение (кнопки «Начать» / «Пропустить мастер»).
+2. Счета (formset: название, тип, текущий остаток — стартовый остаток создаётся
+   как транзакция-пополнение категории «Пополнение»).
+3. Вклады (formset) с **предпросмотром накопленного дохода** до сохранения
+   (HTMX-эндпоинт `/onboarding/preview/` использует тот же `Deposit.get_accrued_income()`).
+4. Доли/ценные бумаги (formset: создаётся `Security` + первая `SecurityValuation`).
+5. Зарплата (сумма, день месяца, чекбокс «создавать автоматически») — при включении
+   создаётся `RecurringTemplate` с категорией «Зарплата».
+
+Данные хранятся в сессии; запись в БД — **только на финальном шаге в одной
+атомарной транзакции** (`transaction.atomic`), после чего выставляется
+`user.profile.onboarding_completed = True`.
+
+Опции отмены на любом шаге:
+- **«Отменить и удалить всё»** — `storage.reset()`, в БД ничего не создаётся.
+- **«Отменить и сохранить, что уже ввёл»** — частичная атомарная запись по
+  пройденным шагам, `onboarding_completed` остаётся `False`.
+- **«Пропустить мастер»** (шаг 1) — `onboarding_completed=True`,
+  `onboarding_skipped=True`.
+
+Повторный запуск доступен из меню **«Настройки»** (всегда в режиме добавления,
+не изменяет существующие записи). На Dashboard показывается виджет-подсказка,
+если `onboarding_completed=False`.
+
+Модель: `UserProfile` (`onboarding_completed`, `onboarding_skipped`) — OneToOne к
+`User`, создаётся сигналом при регистрации.
+
 
 ## Формат импорта/экспорта CSV
 

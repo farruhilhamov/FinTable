@@ -41,6 +41,10 @@ def signup_view(request):
         if form.is_valid():
             user = form.save()
             login(request, user)
+            # После регистрации автоматически запускаем Wizard (если профиль не завершён).
+            profile = getattr(user, 'profile', None)
+            if profile is None or not profile.onboarding_completed:
+                return redirect('wizard')
             return redirect('dashboard')
     else:
         form = SignupForm()

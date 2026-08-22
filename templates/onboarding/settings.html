@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Настройки — FinTable{% endblock %}
+{% block content %}
+<h2 class="mb-4">Настройки</h2>
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <h5 class="card-title">Быстрая настройка профиля</h5>
+    <p class="text-muted">
+      Мастер помогает добавить счета, вклады, долю и шаблон зарплаты за 3–5 минут.
+      Повторное прохождение <b>только добавляет</b> новые записи и не изменяет
+      существующие.
+    </p>
+    <p>
+      Статус онбординга:
+      {% if profile.onboarding_completed %}<span class="badge bg-success">завершён</span>{% endif %}
+      {% if profile.onboarding_skipped %}<span class="badge bg-secondary">пропущен</span>{% endif %}
+      {% if not profile.onboarding_completed and not profile.onboarding_skipped %}
+        <span class="badge bg-warning text-dark">не завершён</span>
+      {% endif %}
+    </p>
+    <a href="{% url 'wizard' %}" class="btn btn-primary">Запустить мастер снова</a>
+  </div>
+</div>
+{% endblock %}

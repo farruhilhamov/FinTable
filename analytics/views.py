@@ -32,6 +32,14 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             .select_related('account', 'category')
             .order_by('-date', '-created_at')[:10]
         )
+        # Виджет подсказки о незавершённом онбординге
+        from onboarding.models import UserProfile
+        from finance.models import Account
+        profile = getattr(user, 'profile', None)
+        ctx['onboarding_incomplete'] = (
+            profile is None or not profile.onboarding_completed
+        )
+        ctx['has_accounts'] = Account.objects.filter(user=user).exists()
         return ctx
 
 

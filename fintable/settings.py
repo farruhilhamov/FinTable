@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'securities',
     'analytics',
     'importexport',
+    'onboarding',
 ]
 
 MIDDLEWARE = [

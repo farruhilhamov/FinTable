@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load fin_tags %}
+{% block title %}Мастер настройки — FinTable{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-8">
+  <div class="card shadow-sm">
+    <div class="card-body">
+
+      {# Прогресс-бар (кроме шага приветствия) #}
+      {% if not is_welcome %}
+      <div class="mb-3">
+        <div class="d-flex justify-content-between small text-muted mb-1">
+          <span>Шаг {{ step_index }} из {{ total_steps }} — {{ step_titles|get_item:steps.current }}</span>
+          <span>{{ progress_pct }}%</span>
+        </div>
+        <div class="progress" style="height:6px">
+          <div class="progress-bar" style="width:{{ progress_pct }}%"></div>
+        </div>
+      </div>
+      {% endif %}
+
+      <form method="post">{% csrf_token %}
+        {{ wizard.management_form }}
+        {% if wizard.form.forms %}
+          {{ wizard.form.management_form }}
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead class="table-light">{% for field in wizard.form.forms.0.visible_fields %}
+                <th>{{ field.label }}</th>
+              {% endfor %}</thead>
+              <tbody>{% for form in wizard.form.forms %}
+                <tr>{% for field in form.visible_fields %}
+                  <td>{% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}{{ field }}</td>
+                {% endfor %}</tr>
+              {% endfor %}</tbody>
+            </table>
+          </div>
+        {% else %}
+          {{ wizard.form.as_p }}
+        {% endif %}
+
+        {% if is_welcome %}
+          <div class="alert alert-info">
+            Этот мастер поможет быстро внести ваши текущие финансы. Он займёт 3–5 минут
+            и покрывает только основные функции — счета, вклады, доля и зарплата.
+            Более детальную настройку (категории, регулярные расходы, редактирование)
+            вы всегда сможете сделать позже в настройках.
+          </div>
+          <button class="btn btn-primary" type="submit">Начать</button>
+          <button class="btn btn-outline-secondary" type="submit" name="wizard_action" value="skip">Пропустить мастер</button>
+        {% else %}
+          {% if steps.current == '3' %}
+            <div class="alert alert-light border small" id="preview">Накопленный доход на сегодня: —</div>
+          {% endif %}
+          <div class="d-flex justify-content-between mt-3">
+            <div class="btn-group">
+              {% if steps.prev %}
+                <button class="btn btn-outline-secondary" type="submit" name="wizard_goto_step" value="{{ steps.prev }}">Назад</button>
+              {% endif %}
+              <button class="btn btn-outline-warning" type="submit" name="wizard_action" value="cancel_save"
+                      title="Сохранить уже введённое и выйти">Отменить и сохранить</button>
+              <button class="btn btn-outline-danger" type="submit" name="wizard_action" value="cancel_delete"
+                      title="Удалить всё введённое и выйти">Отменить и удалить всё</button>
+            </div>
+            <button class="btn btn-primary" type="submit">
+              {% if is_last %}Завершить{% else %}Далее{% endif %}
+            </button>
+          </div>
+        {% endif %}
+      </form>
+
+    </div>
+  </div>
+</div></div>
+{% endblock %}
+
+{% block scripts %}
+{% if steps.current == '3' %}
+<script>
+// Предпросмотр накопленного дохода по первой непустой строке вклада (HTMX-эндпоинт
+// использует ту же модель Deposit.get_accrued_income — расчёт совпадает).
+function updatePreview() {
+  const f0 = document.querySelector('[id^="id_"][id$="-principal_amount"]');
+  const f1 = document.querySelector('[id^="id_"][id$="-annual_rate"]');
+  const f2 = document.querySelector('[id^="id_"][id$="-start_date"]');
+  const f3 = document.querySelector('[id^="id_"][id$="-capitalization_type"]');
+  if (!f0 || !f1) return;
+  const params = new URLSearchParams({
+    principal_amount: f0.value || '0',
+    annual_rate: f1.value || '0',
+    start_date: f2 ? f2.value : '',
+    capitalization_type: f3 ? f3.value : 'simple',
+  });
+  fetch('/onboarding/preview/?' + params.toString(), {headers: {'X-Requested-With':'XMLHttpRequest'}})
+    .then(r => r.text())
+    .then(html => { document.getElementById('preview').innerHTML = html; })
+    .catch(()=>{});
+}
+document.addEventListener('input', function(e){ if (e.target && e.target.id && e.target.id.includes('principal_amount')) updatePreview(); });
+window.addEventListener('DOMContentLoaded', updatePreview);
+</script>
+{% endif %}
+{% endblock %}

@@ -11,6 +11,7 @@ urlpatterns = [
     path('securities/', include('securities.urls')),
     path('analytics/', include('analytics.urls')),
     path('importexport/', include('importexport.urls')),
+    path('', include('onboarding.urls')),
 ]
 
 if settings.DEBUG:
