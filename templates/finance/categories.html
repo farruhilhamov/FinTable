@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Категории — FinTable{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Категории</h2>
+  <a href="{% url 'category_create' %}" class="btn btn-primary btn-sm">+ Добавить</a>
+</div>
+<div class="row g-3">
+  <div class="col-md-6">
+    <h5>Доходы</h5>
+    <table class="table table-sm align-middle">
+      <tbody>
+      {% for c in income_categories %}
+        <tr>
+          <td>{{ c.name }}{% if not c.is_active %} <span class="badge bg-secondary">архив</span>{% endif %}</td>
+          <td class="text-end">
+            <a href="{% url 'category_edit' c.id %}" class="btn btn-sm btn-outline-secondary">✎</a>
+            {% if c.is_active %}<form method="post" action="{% url 'category_archive' c.id %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-outline-warning">архив</button></form>{% endif %}
+          </td>
+        </tr>
+      {% empty %}<tr><td class="text-muted">нет категорий</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="col-md-6">
+    <h5>Расходы</h5>
+    <table class="table table-sm align-middle">
+      <tbody>
+      {% for c in expense_categories %}
+        <tr>
+          <td>{{ c.name }}{% if not c.is_active %} <span class="badge bg-secondary">архив</span>{% endif %}</td>
+          <td class="text-end">
+            <a href="{% url 'category_edit' c.id %}" class="btn btn-sm btn-outline-secondary">✎</a>
+            {% if c.is_active %}<form method="post" action="{% url 'category_archive' c.id %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-outline-warning">архив</button></form>{% endif %}
+          </td>
+        </tr>
+      {% empty %}<tr><td class="text-muted">нет категорий</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

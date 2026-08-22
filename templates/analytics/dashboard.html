@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Дашборд — FinTable{% endblock %}
+{% block content %}
+<h2 class="mb-4">Дашборд</h2>
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card card-stat shadow-sm">
+      <div class="card-body">
+        <div class="text-muted small">Net Worth</div>
+        <div class="stat-value">{{ net_worth }} UZS</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card card-stat shadow-sm">
+      <div class="card-body">
+        <div class="text-muted small">P&L за {{ pnl_month_label }}</div>
+        <div class="stat-value {% if pnl.total >= 0 %}text-success{% else %}text-danger{% endif %}">
+          {{ pnl.total }} UZS
+        </div>
+        <div class="small text-muted">
+          транзакции: {{ pnl.transactions }} · вклады: {{ pnl.deposits }} · бумаги: {{ pnl.securities }}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card card-stat shadow-sm">
+      <div class="card-body">
+        <div class="text-muted small">Последние транзакции</div>
+        <ul class="list-unstyled mb-0 small">
+          {% for t in recent_transactions %}
+            <li>
+              <span class="badge {% if t.type == 'income' %}bg-success{% else %}bg-danger{% endif %}">{{ t.get_type_display }}</span>
+              {{ t.amount }} — {{ t.category.name }} <span class="text-muted">{{ t.date|date:"d.m" }}</span>
+            </li>
+          {% empty %}
+            <li class="text-muted">ещё нет транзакций</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h5 class="card-title">Динамика капитала (12 мес.)</h5>
+    <canvas id="nwChart" height="100"></canvas>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ctx = document.getElementById('nwChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: {{ dynamics_labels|safe }},
+    datasets: [{
+      label: 'Net Worth',
+      data: {{ dynamics_values|safe }},
+      borderColor: '#0d6efd',
+      backgroundColor: 'rgba(13,110,253,0.1)',
+      fill: true,
+      tension: 0.2,
+    }]
+  },
+  options: { responsive: true, scales: { y: { beginAtZero: false } } }
+});
+</script>
+{% endblock %}

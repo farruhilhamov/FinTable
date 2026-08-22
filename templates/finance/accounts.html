@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Счета — FinTable{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Счета</h2>
+  <a href="{% url 'account_create' %}" class="btn btn-primary btn-sm">+ Добавить</a>
+</div>
+<div class="row g-3">
+{% for a in accounts %}
+  <div class="col-md-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between">
+          <h5 class="card-title mb-1">{{ a.name }}</h5>
+          <span class="badge bg-secondary">{{ a.get_type_display }}</span>
+        </div>
+        <div class="stat-value">{{ a.calculated_balance }} UZS</div>
+        <div class="small text-muted">{% if a.is_active %}активен{% else %}архивирован{% endif %}</div>
+        <a href="{% url 'account_edit' a.id %}" class="btn btn-sm btn-outline-secondary mt-2">Редактировать</a>
+      </div>
+    </div>
+  </div>
+{% empty %}
+  <div class="col-12 text-center text-muted">счетов нет</div>
+{% endfor %}
+</div>
+{% endblock %}

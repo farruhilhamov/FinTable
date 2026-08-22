@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Вклады — FinTable{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Вклады</h2>
+  <a href="{% url 'deposit_create' %}" class="btn btn-primary btn-sm">+ Добавить</a>
+</div>
+<div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead class="table-light"><tr><th>Название</th><th>Тело</th><th>Ставка</th><th>Капитализация</th><th>Накоплено</th><th>Баланс</th><th>Статус</th><th></th></tr></thead>
+    <tbody>
+    {% for d in deposits %}
+      <tr>
+        <td>{{ d.name }}{% if d.account %}<div class="small text-muted">{{ d.account.name }}</div>{% endif %}</td>
+        <td>{{ d.principal_amount }}</td>
+        <td>{{ d.annual_rate }}%</td>
+        <td>{{ d.get_capitalization_type_display }}</td>
+        <td class="text-success">{{ d.accrued }}</td>
+        <td class="fw-semibold">{{ d.balance }}</td>
+        <td><span class="badge {% if d.status == 'active' %}bg-success{% else %}bg-secondary{% endif %}">{{ d.get_status_display }}</span></td>
+        <td class="text-end">
+          <a href="{% url 'deposit_edit' d.id %}" class="btn btn-sm btn-outline-secondary">✎</a>
+          {% if d.status == 'active' %}<form method="post" action="{% url 'deposit_close' d.id %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-outline-warning">закрыть</button></form>{% endif %}
+          <a href="{% url 'deposit_delete' d.id %}" class="btn btn-sm btn-outline-danger">✕</a>
+        </td>
+      </tr>
+    {% empty %}<tr><td colspan="8" class="text-center text-muted">вкладов нет</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

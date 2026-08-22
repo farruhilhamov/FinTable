@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load fin_tags %}
+{% block title %}Импорт/экспорт — FinTable{% endblock %}
+{% block content %}
+<h2 class="mb-3">Импорт / экспорт</h2>
+
+<form method="post" action="{% url 'importexport' %}" class="mb-4">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="export_all">
+  <button class="btn btn-success">Экспортировать всё (ZIP)</button>
+</form>
+
+<div class="row g-3">
+  {% for key, spec in specs.items %}
+    <div class="col-md-6 col-xl-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="card-title">{{ spec.verbose_name }}</h5>
+          <div class="small text-muted mb-2">колонки: {% for f in spec.fields %}{{ f.header }}{% if not forloop.last %}; {% endif %}{% endfor %}</div>
+          <form method="post" action="{% url 'importexport' %}" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="export">
+            <input type="hidden" name="entity" value="{{ key }}">
+            <button class="btn btn-sm btn-outline-primary">Экспорт CSV</button>
+          </form>
+          <form method="post" action="{% url 'importexport' %}" enctype="multipart/form-data" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="import">
+            <input type="hidden" name="entity" value="{{ key }}">
+            <input type="file" name="file" accept=".csv" class="form-control form-control-sm d-inline-block" style="width:auto" required>
+            <button class="btn btn-sm btn-outline-success">Импорт</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+{% if import_report %}
+<div class="card mt-4"><div class="card-body">
+  <h5>Отчёт об импорте «{% for key, spec in specs.items %}{% if key == import_entity %}{{ spec.verbose_name }}{% endif %}{% endfor %}»</h5>
+  <p>Создано: {{ import_report.created }} · Обновлено: {{ import_report.updated }} · Ошибок: {{ import_report.errors|length }}</p>
+  {% if import_report.errors %}
+  <ul class="text-danger small">
+    {% for e in import_report.errors %}<li>строка {{ e.row }}: {{ e.msg }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+</div></div>
+{% endif %}
+
+<div class="alert alert-info mt-4 small">
+  <b>Формат CSV:</b> разделитель «;», кодировка UTF-8, первая строка — заголовки.
+  Формат даты: ISO 8601 (YYYY-MM-DD). Числа: десятичная точка. Булевы поля: 1/0.
+  Подробности — в <code>README.md</code>.
+</div>
+{% endblock %}

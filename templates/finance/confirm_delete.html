@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-md-6 text-center">
+  <h3 class="mb-3">Удалить?</h3>
+  <p class="text-muted">{{ object }}</p>
+  <form method="post">{% csrf_token %}
+    <button class="btn btn-danger" type="submit">Удалить</button>
+    <a href="javascript:history.back()" class="btn btn-secondary">Отмена</a>
+  </form>
+</div></div>
+{% endblock %}

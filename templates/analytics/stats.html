@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load fin_tags %}
+{% block title %}Статистика — FinTable{% endblock %}
+{% block content %}
+<h2 class="mb-3">Статистика</h2>
+<form method="get" class="row g-2 mb-4">
+  <div class="col-md-3"><label class="form-label small">С</label><input type="date" name="date_from" value="{{ date_from }}" class="form-control form-control-sm"></div>
+  <div class="col-md-3"><label class="form-label small">По</label><input type="date" name="date_to" value="{{ date_to }}" class="form-control form-control-sm"></div>
+  <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary btn-sm">Применить</button></div>
+</form>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card shadow-sm"><div class="card-body">
+      <h5 class="card-title">Доходы по категориям</h5>
+      <canvas id="incomePie" height="120"></canvas>
+    </div></div>
+  </div>
+  <div class="col-md-6">
+    <div class="card shadow-sm"><div class="card-body">
+      <h5 class="card-title">Расходы по категориям</h5>
+      <canvas id="expensePie" height="120"></canvas>
+    </div></div>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-4"><div class="card-body">
+  <h5 class="card-title">Доходы/расходы по месяцам (12 мес.)</h5>
+  <canvas id="monthlyChart" height="100"></canvas>
+</div></div>
+
+<div class="table-responsive">
+  <table class="table table-sm">
+    <thead class="table-light"><tr><th>Месяц</th><th class="text-end">Доходы</th><th class="text-end">Расходы</th><th class="text-end">Разница</th></tr></thead>
+    <tbody>
+    {% for m in monthly %}
+      <tr>
+        <td>{{ m.month }}</td>
+        <td class="text-end text-success">{{ m.income }}</td>
+        <td class="text-end text-danger">{{ m.expense }}</td>
+        <td class="text-end">{{ m.income|sub:m.expense }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const colors = ['#0d6efd','#198754','#dc3545','#ffc107','#6610f2','#0dcaf0','#fd7e14','#20c997','#d63384','#6c757d','#adb5bd','#212529'];
+function pie(id, labels, data) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  new Chart(el, { type: 'pie', data: { labels: labels, datasets: [{ data: data, backgroundColor: colors }] } });
+}
+pie('incomePie', {{ income_pie_labels|safe }}, {{ income_pie_values|safe }});
+pie('expensePie', {{ expense_pie_labels|safe }}, {{ expense_pie_values|safe }});
+
+const mc = document.getElementById('monthlyChart');
+if (mc) {
+  new Chart(mc, {
+    type: 'bar',
+    data: {
+      labels: {{ income_labels|safe }},
+      datasets: [
+        { label: 'Доходы', data: {{ income_values|safe }}, backgroundColor: '#198754' },
+        { label: 'Расходы', data: {{ expense_values|safe }}, backgroundColor: '#dc3545' },
+      ]
+    },
+    options: { responsive: true }
+  });
+}
+</script>
+{% endblock %}
