@@ -1,11 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="row justify-content-center"><div class="col-md-6 text-center">
-  <h3 class="mb-3">Удалить?</h3>
-  <p class="text-muted">{{ object }}</p>
-  <form method="post">{% csrf_token %}
-    <button class="btn btn-danger" type="submit">Удалить</button>
-    <a href="javascript:history.back()" class="btn btn-secondary">Отмена</a>
-  </form>
+  <div class="card shadow-sm">
+    <div class="card-body p-4">
+      <h3 class="mb-2">Удалить?</h3>
+      <p class="text-muted mb-4">{{ object }}</p>
+      <form method="post">{% csrf_token %}
+        <button class="btn btn-danger w-100 mb-2" type="submit">Удалить</button>
+        <a href="javascript:history.back()" class="btn btn-outline-secondary w-100">Отмена</a>
+      </form>
+    </div>
+  </div>
 </div></div>
 {% endblock %}

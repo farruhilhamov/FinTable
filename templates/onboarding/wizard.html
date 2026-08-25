@@ -50,10 +50,10 @@
           <button class="btn btn-outline-secondary" type="submit" name="wizard_action" value="skip">Пропустить мастер</button>
         {% else %}
           {% if steps.current == '3' %}
-            <div class="alert alert-light border small" id="preview">Накопленный доход на сегодня: —</div>
+            <div class="alert alert-light small" id="preview">Накопленный доход на сегодня: —</div>
           {% endif %}
-          <div class="d-flex justify-content-between mt-3">
-            <div class="btn-group">
+          <div class="d-flex flex-column flex-sm-row justify-content-between gap-2 mt-3">
+            <div class="d-flex flex-wrap gap-2">
               {% if steps.prev %}
                 <button class="btn btn-outline-secondary" type="submit" name="wizard_goto_step" value="{{ steps.prev }}">Назад</button>
               {% endif %}
