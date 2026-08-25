@@ -9,6 +9,7 @@
 PROJECT_DIR="/root/FinTable"        # folder containing manage.py
 PROJECT_NAME="FinTable"             # python package containing wsgi.py
 DOMAIN_OR_IP="185.118.133.79"        # server IP or domain (for cert CN + ALLOWED_HOSTS)
+GIT_REMOTE="https://github.com/farruhilhamov/FinTable.git"   # or "" to skip git
 VENV_DIR="$PROJECT_DIR/venv"
 # ============================================================
 
@@ -19,11 +20,28 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
-echo ">>> [1/8] Updating system and installing packages..."
+echo ">>> [1/9] Updating system and installing packages..."
 apt update -y
-apt install -y python3-pip python3-venv python3-dev libpq-dev nginx openssl curl
+apt install -y python3-pip python3-venv python3-dev libpq-dev nginx openssl curl git
 
-echo ">>> [2/8] Creating virtual environment..."
+echo ">>> [2/9] Cloning / pulling code from GitHub..."
+cd "$PROJECT_DIR" 2>/dev/null || { mkdir -p "$PROJECT_DIR"; cd "$PROJECT_DIR"; }
+if [ -n "$GIT_REMOTE" ]; then
+    if [ -d "$PROJECT_DIR/.git" ]; then
+        git fetch origin
+        git checkout -f -B main origin/main
+    else
+        git init
+        git remote add origin "$GIT_REMOTE"
+        git fetch origin
+        git checkout -f -B main origin/main
+    fi
+    echo "   Code updated from: $GIT_REMOTE (branch main)"
+else
+    echo "   GIT_REMOTE empty - skipping git, using files as-is."
+fi
+
+echo ">>> [3/9] Creating virtual environment..."
 if [ ! -d "$VENV_DIR" ]; then
     python3 -m venv "$VENV_DIR"
 fi
@@ -35,12 +53,12 @@ if [ -f "$PROJECT_DIR/requirements.txt" ]; then
 fi
 deactivate
 
-echo ">>> [3/8] Running Django migrations and collectstatic..."
+echo ">>> [4/9] Running Django migrations and collectstatic..."
 cd "$PROJECT_DIR"
 "$VENV_DIR/bin/python" manage.py migrate --noinput || echo "WARNING: migrate failed, check DB settings"
 "$VENV_DIR/bin/python" manage.py collectstatic --noinput || echo "WARNING: collectstatic failed"
 
-echo ">>> [4/8] Generating self-signed SSL certificate..."
+echo ">>> [5/9] Generating self-signed SSL certificate..."
 mkdir -p /etc/nginx/ssl
 if [ ! -f /etc/nginx/ssl/selfsigned.crt ]; then
     openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
@@ -50,7 +68,7 @@ if [ ! -f /etc/nginx/ssl/selfsigned.crt ]; then
     chmod 600 /etc/nginx/ssl/selfsigned.key
 fi
 
-echo ">>> [5/8] Creating systemd service for Gunicorn (running as root)..."
+echo ">>> [6/9] Creating systemd service for Gunicorn (running as root)..."
 cat > /etc/systemd/system/gunicorn.service <<EOF
 [Unit]
 Description=Gunicorn daemon for ${PROJECT_NAME}
@@ -68,7 +86,7 @@ RestartSec=3
 WantedBy=multi-user.target
 EOF
 
-echo ">>> [6/8] Creating Nginx config (8443 SSL -> 8000)..."
+echo ">>> [7/9] Creating Nginx config (8443 SSL -> 8000, static from staticfiles/)..."
 cat > /etc/nginx/sites-available/${PROJECT_NAME} <<EOF
 server {
     listen 8443 ssl;
@@ -81,7 +99,7 @@ server {
     client_max_body_size 20M;
 
     location /static/ {
-        alias ${PROJECT_DIR}/static/;
+        alias ${PROJECT_DIR}/staticfiles/;
     }
 
     location /media/ {
@@ -101,13 +119,13 @@ EOF
 ln -sf /etc/nginx/sites-available/${PROJECT_NAME} /etc/nginx/sites-enabled/${PROJECT_NAME}
 rm -f /etc/nginx/sites-enabled/default
 
-echo ">>> [7/8] Opening firewall port 8443..."
+echo ">>> [8/9] Opening firewall port 8443..."
 if command -v ufw >/dev/null 2>&1; then
     ufw allow 8443/tcp
     ufw --force enable
 fi
 
-echo ">>> [8/8] Starting services..."
+echo ">>> [9/9] Starting services..."
 nginx -t
 systemctl daemon-reload
 systemctl enable gunicorn
@@ -126,4 +144,6 @@ echo " Useful commands:"
 echo "   systemctl status gunicorn"
 echo "   systemctl status nginx"
 echo "   journalctl -u gunicorn -f"
+echo ""
+echo " Next updates: run  bash deploy_update.sh  (one command)"
 echo "============================================================"
