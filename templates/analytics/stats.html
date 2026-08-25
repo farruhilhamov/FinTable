@@ -11,7 +11,7 @@
 
 {# Текстовая сводка-объяснение P&L #}
 <div class="alert alert-light border">
-  <strong>P&L за {{ pnl_period_label }}: {{ pnl.total }} UZS.</strong>
+  <strong>P&L за {{ pnl_period_label }}: {{ pnl.total|money }} UZS.</strong>
   <span class="small">{{ explanation.summary_text }}</span>
   <details class="mt-2">
     <summary class="small text-primary">Показать подробнее</summary>
@@ -46,9 +46,9 @@
     {% for m in monthly %}
       <tr>
         <td>{{ m.month }}</td>
-        <td class="text-end text-success">{{ m.income }}</td>
-        <td class="text-end text-danger">{{ m.expense }}</td>
-        <td class="text-end">{{ m.income|sub:m.expense }}</td>
+        <td class="text-end text-success">{{ m.income|money }}</td>
+        <td class="text-end text-danger">{{ m.expense|money }}</td>
+        <td class="text-end">{{ m.income|sub:m.expense|money }}</td>
       </tr>
     {% endfor %}
     </tbody>
@@ -58,28 +58,35 @@
 
 {% block scripts %}
 <script>
-const colors = ['#0d6efd','#198754','#dc3545','#ffc107','#6610f2','#0dcaf0','#fd7e14','#20c997','#d63384','#6c757d','#adb5bd','#212529'];
-function pie(id, labels, data) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  new Chart(el, { type: 'pie', data: { labels: labels, datasets: [{ data: data, backgroundColor: colors }] } });
-}
-pie('incomePie', {{ income_pie_labels|safe }}, {{ income_pie_values|safe }});
-pie('expensePie', {{ expense_pie_labels|safe }}, {{ expense_pie_values|safe }});
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof Chart === 'undefined') return;
+  const colors = ['#0d6efd','#198754','#dc3545','#ffc107','#6610f2','#0dcaf0','#fd7e14','#20c997','#d63384','#6c757d','#adb5bd','#212529'];
+  function pie(id, labels, data) {
+    const el = document.getElementById(id);
+    if (!el || !labels.length) return;
+    new Chart(el, {
+      type: 'pie',
+      data: { labels: labels, datasets: [{ data: data.map(Number), backgroundColor: colors }] },
+      options: { responsive: true }
+    });
+  }
+  pie('incomePie', {{ income_pie_labels|safe }}, {{ income_pie_values|safe }});
+  pie('expensePie', {{ expense_pie_labels|safe }}, {{ expense_pie_values|safe }});
 
-const mc = document.getElementById('monthlyChart');
-if (mc) {
-  new Chart(mc, {
-    type: 'bar',
-    data: {
-      labels: {{ income_labels|safe }},
-      datasets: [
-        { label: 'Доходы', data: {{ income_values|safe }}, backgroundColor: '#198754' },
-        { label: 'Расходы', data: {{ expense_values|safe }}, backgroundColor: '#dc3545' },
-      ]
-    },
-    options: { responsive: true }
-  });
-}
+  const mc = document.getElementById('monthlyChart');
+  if (mc) {
+    new Chart(mc, {
+      type: 'bar',
+      data: {
+        labels: {{ income_labels|safe }},
+        datasets: [
+          { label: 'Доходы', data: ({{ income_values|safe }}).map(Number), backgroundColor: '#198754' },
+          { label: 'Расходы', data: ({{ expense_values|safe }}).map(Number), backgroundColor: '#dc3545' },
+        ]
+      },
+      options: { responsive: true }
+    });
+  }
+});
 </script>
 {% endblock %}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load fin_tags %}
 {% block title %}Бумаги/доли — FinTable{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -12,9 +13,9 @@
     {% for s in securities %}
       <tr>
         <td><a href="{% url 'security_valuations' s.id %}">{{ s.name }}</a></td>
-        <td>{{ s.acquisition_value }}</td>
-        <td>{{ s.cur_value }}</td>
-        <td class="{% if s.cur_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">{{ s.cur_pnl }}</td>
+        <td>{{ s.acquisition_value|money }}</td>
+        <td>{{ s.cur_value|money }}</td>
+        <td class="{% if s.cur_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">{{ s.cur_pnl|money }}</td>
         <td class="text-end">
           <a href="{% url 'security_valuation_create' s.id %}" class="btn btn-sm btn-outline-primary">+ оценка</a>
           <a href="{% url 'security_edit' s.id %}" class="btn btn-sm btn-outline-secondary">✎</a>

@@ -3,9 +3,9 @@
 
 <div class="small text-muted mt-1">
   Сравнение с {{ explanation.periods.previous.label }}:
-  P&L был {{ explanation.pnl_previous }} UZS, изменение
+  P&L был {{ explanation.pnl_previous|money }} UZS, изменение
   <span class="{% if explanation.delta >= 0 %}text-success{% else %}text-danger{% endif %}">
-    {{ explanation.delta }}
+    {{ explanation.delta|money }}
   </span> UZS.
 </div>
 
@@ -16,19 +16,19 @@
   </tr></thead>
   <tbody>
     <tr><td>Операционный (доходы−расходы)</td>
-      <td class="text-end">{{ explanation.components.operational.current }}</td>
-      <td class="text-end">{{ explanation.components.operational.previous }}</td>
-      <td class="text-end {% if explanation.components.operational.delta >= 0 %}text-success{% else %}text-danger{% endif %}">{{ explanation.components.operational.delta }}</td>
+      <td class="text-end">{{ explanation.components.operational.current|money }}</td>
+      <td class="text-end">{{ explanation.components.operational.previous|money }}</td>
+      <td class="text-end {% if explanation.components.operational.delta >= 0 %}text-success{% else %}text-danger{% endif %}">{{ explanation.components.operational.delta|money }}</td>
     </tr>
     <tr><td>Доход от вкладов</td>
-      <td class="text-end">{{ explanation.components.deposits.current }}</td>
-      <td class="text-end">{{ explanation.components.deposits.previous }}</td>
-      <td class="text-end {% if explanation.components.deposits.delta >= 0 %}text-success{% else %}text-danger{% endif %}">{{ explanation.components.deposits.delta }}</td>
+      <td class="text-end">{{ explanation.components.deposits.current|money }}</td>
+      <td class="text-end">{{ explanation.components.deposits.previous|money }}</td>
+      <td class="text-end {% if explanation.components.deposits.delta >= 0 %}text-success{% else %}text-danger{% endif %}">{{ explanation.components.deposits.delta|money }}</td>
     </tr>
     <tr><td>Изменение стоимости долей</td>
-      <td class="text-end">{{ explanation.components.securities.current }}</td>
-      <td class="text-end">{{ explanation.components.securities.previous }}</td>
-      <td class="text-end {% if explanation.components.securities.delta >= 0 %}text-success{% else %}text-danger{% endif %}">{{ explanation.components.securities.delta }}</td>
+      <td class="text-end">{{ explanation.components.securities.current|money }}</td>
+      <td class="text-end">{{ explanation.components.securities.previous|money }}</td>
+      <td class="text-end {% if explanation.components.securities.delta >= 0 %}text-success{% else %}text-danger{% endif %}">{{ explanation.components.securities.delta|money }}</td>
     </tr>
   </tbody>
 </table>
@@ -43,9 +43,9 @@
   {% for f in explanation.factors %}
     <tr>
       <td>{{ f.category }}</td>
-      <td class="text-end">{{ f.current }}</td>
-      <td class="text-end">{{ f.previous }}</td>
-      <td class="text-end {% if f.delta >= 0 %}text-success{% else %}text-danger{% endif %}">{{ f.delta }}</td>
+      <td class="text-end">{{ f.current|money }}</td>
+      <td class="text-end">{{ f.previous|money }}</td>
+      <td class="text-end {% if f.delta >= 0 %}text-success{% else %}text-danger{% endif %}">{{ f.delta|money }}</td>
       <td class="text-end text-muted">{{ f.pct_of_delta }}%</td>
     </tr>
   {% empty %}
@@ -60,8 +60,8 @@
 <ul class="small">
   {% for a in explanation.anomalies %}
     <li>
-      Обнаружена нетипичная операция: «{{ a.category }}», {{ a.amount }} UZS, {{ a.date|date:"d.m.Y" }}
-      — в {{ a.ratio }} раза больше средней транзакции по этой категории ({{ a.avg }} UZS).
+      Обнаружена нетипичная операция: «{{ a.category }}», {{ a.amount|money }} UZS, {{ a.date|date:"d.m.Y" }}
+      — в {{ a.ratio }} раза больше средней транзакции по этой категории ({{ a.avg|money }} UZS).
       {% if a.description %}<span class="text-muted">({{ a.description }})</span>{% endif %}
     </li>
   {% endfor %}

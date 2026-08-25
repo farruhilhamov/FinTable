@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load crispy_forms_tags %}
+{% load crispy_forms_tags fin_tags %}
 {% block title %}Транзакции — FinTable{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -45,7 +45,7 @@
         <td><span class="badge {% if t.type == 'income' %}bg-success{% else %}bg-danger{% endif %}">{{ t.get_type_display }}</span></td>
         <td>{{ t.category.name }}</td>
         <td>{{ t.account.name }}</td>
-        <td class="text-end {% if t.type == 'income' %}text-success{% else %}text-danger{% endif %}">{{ t.amount }}</td>
+        <td class="text-end {% if t.type == 'income' %}text-success{% else %}text-danger{% endif %}">{{ t.amount|money }}</td>
         <td>{{ t.description }}</td>
         <td class="text-end">
           <a href="{% url 'transaction_edit' t.id %}" class="btn btn-sm btn-outline-secondary">✎</a>

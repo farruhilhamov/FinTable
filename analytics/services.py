@@ -15,6 +15,8 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q, Sum, Avg
 from django.db.models.functions import Coalesce
 
+from finance.templatetags.fin_tags import fmt_money as _fmt
+
 from deposits.models import Deposit
 from finance.models import Account, Transaction
 from securities.models import Security, SecurityValuation
@@ -438,8 +440,8 @@ def _build_summary_text(cur, prev, delta, top_factors, components, cur_label, pr
     verb = 'рост' if delta >= 0 else 'падение'
 
     parts = [
-        f'Ваш P&L за {cur_label} составил {cur} UZS '
-        f'(в {prev_label} было {prev} UZS).'
+        f'Ваш P&L за {cur_label} составил {_fmt(cur)} UZS '
+        f'(в {prev_label} было {_fmt(prev)} UZS).'
     ]
 
     if top_factors:
@@ -454,13 +456,13 @@ def _build_summary_text(cur, prev, delta, top_factors, components, cur_label, pr
         sign = '+' if f1['delta'] >= 0 else ''
         parts.append(
             f'Основная причина {reason_word} — {cat_dir} по категории '
-            f'«{f1["category"]}» ({sign}{f1["delta"]} UZS по сравнению с {prev_label}).'
+            f'«{f1["category"]}» ({sign}{_fmt(f1["delta"])} UZS по сравнению с {prev_label}).'
         )
         if len(top_factors) > 1:
             f2 = top_factors[1]
             sign2 = '+' if f2['delta'] >= 0 else ''
             parts.append(
-                f'Также вклад внесла категория «{f2["category"]}» ({sign2}{f2["delta"]} UZS).'
+                f'Также вклад внесла категория «{f2["category"]}» ({sign2}{_fmt(f2["delta"])} UZS).'
             )
 
     # Упоминание вкладов/бумаг при пороге >10% от модуля изменения
@@ -471,12 +473,12 @@ def _build_summary_text(cur, prev, delta, top_factors, components, cur_label, pr
         if abs(dep) > threshold:
             sign = '+' if dep >= 0 else ''
             parts.append(
-                f'Доход от вкладов изменился на {sign}{dep} UZS по сравнению с {prev_label}.'
+                f'Доход от вкладов изменился на {sign}{_fmt(dep)} UZS по сравнению с {prev_label}.'
             )
         if abs(sec) > threshold:
             sign = '+' if sec >= 0 else ''
             parts.append(
-                f'Переоценка долей/ценных бумаг внесла вклад {sign}{sec} UZS.'
+                f'Переоценка долей/ценных бумаг внесла вклад {sign}{_fmt(sec)} UZS.'
             )
     else:
         parts.append('Изменение P&L по сравнению с предыдущим периодом отсутствует.')

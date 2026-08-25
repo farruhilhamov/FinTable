@@ -182,8 +182,9 @@ class WizardTestCase(TestCase):
             capitalization_type=Deposit.SIMPLE, status=Deposit.ACTIVE,
         )
         accrued = tmp.get_accrued_income()
-        self.assertContains(r, str(accrued))
-        self.assertContains(r, str((tmp.principal_amount + accrued).quantize(Decimal('0.01'))))
+        from finance.templatetags.fin_tags import fmt_money
+        self.assertContains(r, fmt_money(accrued, 2))
+        self.assertContains(r, fmt_money((tmp.principal_amount + accrued).quantize(Decimal('0.01')), 2))
 
 
 class RegistrationRedirectTestCase(TestCase):

@@ -49,6 +49,8 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'fintable.urls'
 
+CSRF_TRUSTED_ORIGINS = ["http://185.118.133.79:8443", "https://185.118.133.79:8443", ]
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',

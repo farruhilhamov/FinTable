@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 from django.contrib import messages
 from django.db.models import Sum
@@ -23,8 +24,12 @@ class TransactionListView(OwnerQuerySetMixin, ListView):
     def get_queryset(self):
         qs = super().get_queryset().select_related('account', 'category')
         get = self.request.GET
-        date_from = get.get('date_from')
-        date_to = get.get('date_to')
+        # По умолчанию — текущий месяц (с 1-го числа по сегодня).
+        today = date.today()
+        default_from = date(today.year, today.month, 1)
+        default_to = today
+        date_from = get.get('date_from') or default_from.isoformat()
+        date_to = get.get('date_to') or default_to.isoformat()
         category = get.get('category')
         account = get.get('account')
         ttype = get.get('type')
@@ -42,12 +47,15 @@ class TransactionListView(OwnerQuerySetMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        today = date.today()
+        default_from = date(today.year, today.month, 1).isoformat()
+        default_to = today.isoformat()
         ctx['accounts'] = Account.objects.filter(user=self.request.user, is_active=True)
         ctx['categories'] = Category.objects.filter(user=self.request.user, is_active=True)
         ctx['type_choices'] = Transaction.TYPE_CHOICES
         ctx['filters'] = {
-            'date_from': self.request.GET.get('date_from', ''),
-            'date_to': self.request.GET.get('date_to', ''),
+            'date_from': self.request.GET.get('date_from', default_from),
+            'date_to': self.request.GET.get('date_to', default_to),
             'category': self.request.GET.get('category', ''),
             'account': self.request.GET.get('account', ''),
             'type': self.request.GET.get('type', ''),
@@ -130,6 +138,59 @@ class AccountUpdateView(OwnerQuerySetMixin, UpdateView):
 
     def get_success_url(self):
         return '/finance/accounts/'
+
+
+class AccountBalanceView(OwnerQuerySetMixin, View):
+    """Прямое изменение текущего баланса счёта.
+
+    Баланс счёта считается из транзакций, поэтому для установки нужной суммы
+    создаётся корректирующая транзакция (разница между целевым и текущим
+    балансом) с категорией «Пополнение» (при увеличении) или «Прочие расходы»
+    (при уменьшении).
+    """
+
+    def post(self, request, pk):
+        account = get_object_or_404(Account, pk=pk, user=request.user)
+        new_balance = Decimal(request.POST.get('balance', ''))
+        current = account.balance()
+        delta = new_balance - current
+        if delta != 0:
+            if delta > 0:
+                category = Category.objects.filter(
+                    user=request.user, name='Пополнение', type=Category.INCOME
+                ).first()
+                if category is None:
+                    category = Category.objects.filter(
+                        user=request.user, type=Category.INCOME
+                    ).first()
+                ttype = Transaction.INCOME
+                amount = delta
+            else:
+                category = Category.objects.filter(
+                    user=request.user, name='Прочие расходы', type=Category.EXPENSE
+                ).first()
+                if category is None:
+                    category = Category.objects.filter(
+                        user=request.user, type=Category.EXPENSE
+                    ).first()
+                ttype = Transaction.EXPENSE
+                amount = -delta
+            if category is not None:
+                Transaction.objects.create(
+                    user=request.user, account=account, category=category,
+                    amount=amount, type=ttype, date=date.today(),
+                    description='Корректировка баланса',
+                )
+                messages.success(
+                    request,
+                    f'Баланс счёта «{account.name}» установлен: {new_balance:,.0f} UZS '
+                    f'(корректировка {"+%s" % delta if delta > 0 else "%s" % delta}).',
+                )
+            else:
+                messages.error(request, 'Не найдена подходящая категория для корректировки.')
+        else:
+            messages.info(request, 'Баланс не изменился.')
+        return redirect('/finance/accounts/')
 
 
 # ---------- Категории ----------

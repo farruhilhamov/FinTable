@@ -32,14 +32,14 @@
     <div class="card card-stat shadow-sm h-100">
       <div class="card-body">
         <div class="text-muted small">Net Worth</div>
-        <div class="stat-value">{{ net_worth }} UZS</div>
+        <div class="stat-value">{{ net_worth|money }} UZS</div>
         <table class="table table-sm mt-2 mb-0 small">
           {% for c in nw_breakdown.components %}
           <tr>
             <td>
               <a href="{{ c.url }}" class="text-decoration-none">{{ c.label }}</a>
             </td>
-            <td class="text-end">{{ c.value }}</td>
+            <td class="text-end">{{ c.value|money }}</td>
             <td class="text-end text-muted">{{ c.pct }}%</td>
           </tr>
           {% endfor %}
@@ -60,10 +60,10 @@
       <div class="card-body">
         <div class="text-muted small">P&L за {{ pnl_period_label }}</div>
         <div class="stat-value {% if pnl.total >= 0 %}text-success{% else %}text-danger{% endif %}">
-          {{ pnl.total }} UZS
+          {{ pnl.total|money }} UZS
         </div>
         <div class="small text-muted">
-          опер.: {{ pnl.transactions }} · вклады: {{ pnl.deposits }} · бумаги: {{ pnl.securities }}
+          опер.: {{ pnl.transactions|money }} · вклады: {{ pnl.deposits|money }} · бумаги: {{ pnl.securities|money }}
         </div>
         {# Объяснение P&L — уровень 1 (всегда виден) #}
         <p class="small mt-2 mb-0">{{ explanation.summary_text }}</p>
@@ -90,7 +90,7 @@
       {% for t in recent_transactions %}
         <li>
           <span class="badge {% if t.type == 'income' %}bg-success{% else %}bg-danger{% endif %}">{{ t.get_type_display }}</span>
-          {{ t.amount }} — {{ t.category.name }} <span class="text-muted">{{ t.date|date:"d.m" }}</span>
+          {{ t.amount|money }} — {{ t.category.name }} <span class="text-muted">{{ t.date|date:"d.m" }}</span>
         </li>
       {% empty %}
         <li class="text-muted">ещё нет транзакций</li>
@@ -102,57 +102,64 @@
 
 {% block scripts %}
 <script>
-// Pie-диаграмма структуры Net Worth (3 укрупнённых сегмента).
-const urls = {{ nw_breakdown_urls|safe }};
-const pieEl = document.getElementById('nwPie');
-if (pieEl && urls.length) {
-  new Chart(pieEl, {
-    type: 'pie',
-    data: {
-      labels: {{ nw_breakdown_labels|safe }},
-      datasets: [{
-        data: {{ nw_breakdown_values|safe }},
-        backgroundColor: ['#0d6efd', '#198754', '#ffc107'],
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        tooltip: {
-          callbacks: {
-            label: function(ctx) {
-              const v = ctx.parsed;
-              const total = ctx.dataset.data.reduce((a,b)=>a+Number(b),0);
-              const pct = total ? (v/total*100).toFixed(1) : 0;
-              return `${ctx.label}: ${v} UZS (${pct}%)`;
-            }
-          }
-        },
-        legend: { display: urls.length > 1 }
-      },
-      onClick: function(_evt, els) {
-        if (els.length && urls[els[0].index]) window.location = urls[els[0].index];
-      }
-    }
-  });
-}
+// Chart.js подключается с defer — инициализация только после загрузки библиотеки.
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof Chart === 'undefined') return;
 
-// Динамика Net Worth.
-const ctx = document.getElementById('nwChart').getContext('2d');
-new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: {{ dynamics_labels|safe }},
-    datasets: [{
-      label: 'Net Worth',
-      data: {{ dynamics_values|safe }},
-      borderColor: '#0d6efd',
-      backgroundColor: 'rgba(13,110,253,0.1)',
-      fill: true,
-      tension: 0.2,
-    }]
-  },
-  options: { responsive: true, scales: { y: { beginAtZero: false } } }
+  // Pie-диаграмма структуры Net Worth (3 укрупнённых сегмента).
+  const urls = {{ nw_breakdown_urls|safe }};
+  const pieEl = document.getElementById('nwPie');
+  if (pieEl && urls.length) {
+    new Chart(pieEl, {
+      type: 'pie',
+      data: {
+        labels: {{ nw_breakdown_labels|safe }},
+        datasets: [{
+          data: ({{ nw_breakdown_values|safe }}).map(Number),
+          backgroundColor: ['#0d6efd', '#198754', '#ffc107'],
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                const v = ctx.parsed;
+                const total = ctx.dataset.data.reduce((a,b)=>a+Number(b),0);
+                const pct = total ? (v/total*100).toFixed(1) : 0;
+                return `${ctx.label}: ${v.toLocaleString('ru-RU')} UZS (${pct}%)`;
+              }
+            }
+          },
+          legend: { display: true }
+        },
+        onClick: function(_evt, els) {
+          if (els.length && urls[els[0].index]) window.location = urls[els[0].index];
+        }
+      }
+    });
+  }
+
+  // Динамика Net Worth.
+  const ctx = document.getElementById('nwChart');
+  if (ctx) {
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: {{ dynamics_labels|safe }},
+        datasets: [{
+          label: 'Net Worth',
+          data: ({{ dynamics_values|safe }}).map(Number),
+          borderColor: '#0d6efd',
+          backgroundColor: 'rgba(13,110,253,0.1)',
+          fill: true,
+          tension: 0.2,
+        }]
+      },
+      options: { responsive: true, scales: { y: { beginAtZero: false } } }
+    });
+  }
 });
 
 // P&L по компонентам (stacked bar, 6 периодов) — ленивая инициализация,
@@ -166,14 +173,16 @@ function initCompChart() {
     data: {
       labels: {{ comp_hist_labels|safe }},
       datasets: [
-        { label: 'Операционный', data: {{ comp_hist_operational|safe }}, backgroundColor: '#0d6efd' },
-        { label: 'Вклады', data: {{ comp_hist_deposits|safe }}, backgroundColor: '#198754' },
-        { label: 'Бумаги', data: {{ comp_hist_securities|safe }}, backgroundColor: '#ffc107' },
+        { label: 'Операционный', data: ({{ comp_hist_operational|safe }}).map(Number), backgroundColor: '#0d6efd' },
+        { label: 'Вклады', data: ({{ comp_hist_deposits|safe }}).map(Number), backgroundColor: '#198754' },
+        { label: 'Бумаги', data: ({{ comp_hist_securities|safe }}).map(Number), backgroundColor: '#ffc107' },
       ]
     },
     options: { responsive: true, scales: { x: { stacked: true }, y: { stacked: true } } }
   });
 }
-document.querySelectorAll('details').forEach(d => d.addEventListener('toggle', initCompChart));
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('details').forEach(d => d.addEventListener('toggle', initCompChart));
+});
 </script>
 {% endblock %}

@@ -13,12 +13,12 @@
     {% for v in valuations %}
       <tr>
         <td>{{ v.date|date:"d.m.Y" }}</td>
-        <td>{{ v.value }}</td>
-        <td class="{% if v.value|sub:security.acquisition_value >= 0 %}text-success{% else %}text-danger{% endif %}">{{ v.value|sub:security.acquisition_value }}</td>
+        <td>{{ v.value|money }}</td>
+        <td class="{% if v.value|sub:security.acquisition_value >= 0 %}text-success{% else %}text-danger{% endif %}">{{ v.value|sub:security.acquisition_value|money }}</td>
       </tr>
     {% empty %}<tr><td colspan="3" class="text-center text-muted">переоценок нет</td></tr>{% endfor %}
     </tbody>
   </table>
 </div>
-<p class="text-muted">Стоимость приобретения: {{ security.acquisition_value }} UZS</p>
+<p class="text-muted">Стоимость приобретения: {{ security.acquisition_value|money }} UZS</p>
 {% endblock %}
