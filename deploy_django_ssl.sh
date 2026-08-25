@@ -8,6 +8,7 @@
 # ============================================================
 PROJECT_DIR="/root/FinTable"        # folder containing manage.py
 PROJECT_NAME="FinTable"             # python package containing wsgi.py
+WSGI_MODULE="fintable.wsgi:application"   # module:attribute for gunicorn (lowercase package name!)
 DOMAIN_OR_IP="185.118.133.79"        # server IP or domain (for cert CN + ALLOWED_HOSTS)
 GIT_REMOTE="https://github.com/farruhilhamov/FinTable.git"   # or "" to skip git
 VENV_DIR="$PROJECT_DIR/venv"
@@ -78,7 +79,7 @@ After=network.target
 User=root
 Group=root
 WorkingDirectory=${PROJECT_DIR}
-ExecStart=${VENV_DIR}/bin/gunicorn --workers 3 --bind 127.0.0.1:8000 ${PROJECT_NAME}.wsgi:application
+ExecStart=${VENV_DIR}/bin/gunicorn --workers 3 --bind 127.0.0.1:8000 ${WSGI_MODULE}
 Restart=always
 RestartSec=3
 

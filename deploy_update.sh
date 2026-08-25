@@ -10,6 +10,7 @@ set -e
 PROJECT_DIR="/root/FinTable"
 VENV_DIR="$PROJECT_DIR/venv"
 GIT_REMOTE="https://github.com/farruhilhamov/FinTable.git"
+WSGI_MODULE="fintable.wsgi:application"
 # ============================================================
 
 if [[ $EUID -ne 0 ]]; then
@@ -39,6 +40,11 @@ echo ">>> [3/5] Migrations + collectstatic..."
 "$VENV_DIR/bin/python" manage.py collectstatic --noinput || echo "WARNING: collectstatic failed"
 
 echo ">>> [4/5] Restarting services..."
+# Ensure the gunicorn systemd unit points at the correct WSGI module.
+if ! grep -q "${WSGI_MODULE}" /etc/systemd/system/gunicorn.service; then
+    echo "   Fixing gunicorn.service ExecStart (WSGI module) ..."
+    sed -i 's|gunicorn --workers 3 --bind 127.0.0.1:8000 .*|gunicorn --workers 3 --bind 127.0.0.1:8000 '"${WSGI_MODULE}"'|' /etc/systemd/system/gunicorn.service
+fi
 systemctl daemon-reload
 systemctl restart gunicorn
 systemctl reload nginx || systemctl restart nginx
