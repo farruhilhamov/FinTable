@@ -2,10 +2,13 @@
 {% load fin_tags %}
 {% block title %}Статистика — FinTable{% endblock %}
 {% block content %}
-<h2 class="mb-3">Статистика</h2>
-<form method="get" class="row g-2 mb-4">
-  <div class="col-md-3"><label class="form-label small">С</label><input type="date" name="date_from" value="{{ date_from }}" class="form-control form-control-sm"></div>
-  <div class="col-md-3"><label class="form-label small">По</label><input type="date" name="date_to" value="{{ date_to }}" class="form-control form-control-sm"></div>
+<div class="nm-section-title">
+  <h2 class="mb-0">Статистика</h2>
+  <span class="text-muted small d-none d-sm-inline">{{ date_from }} — {{ date_to }}</span>
+</div>
+<form method="get" class="nm-inset p-3 mb-4 row g-2 align-items-end">
+  <div class="col-md-3"><label class="form-label small mb-0">С</label><input type="date" name="date_from" value="{{ date_from }}" class="form-control form-control-sm"></div>
+  <div class="col-md-3"><label class="form-label small mb-0">По</label><input type="date" name="date_to" value="{{ date_to }}" class="form-control form-control-sm"></div>
   <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary btn-sm">Применить</button></div>
 </form>
 

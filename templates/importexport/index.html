@@ -2,7 +2,9 @@
 {% load fin_tags %}
 {% block title %}Импорт/экспорт — FinTable{% endblock %}
 {% block content %}
-<h2 class="mb-3">Импорт / экспорт</h2>
+<div class="nm-section-title">
+  <h2 class="mb-0">Импорт / экспорт</h2>
+</div>
 
 <form method="post" action="{% url 'importexport' %}" class="mb-4">
   {% csrf_token %}

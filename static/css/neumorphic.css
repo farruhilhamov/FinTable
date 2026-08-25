@@ -1,0 +1,484 @@
+/* ============================================================
+   FinTable — Neumorphic design system
+   База: один цвет фона; элементы «растут» из него через двойные
+   мягкие тени (light top-left + dark bottom-right). Активные —
+   inset (утонувшие).
+   ============================================================ */
+
+:root {
+  /* Поверхность */
+  --nm-bg: #e0e5ec;
+  --nm-bg-2: #e8edf5;
+  --nm-surface: #e0e5ec;
+  --nm-light: rgba(255, 255, 255, 0.85);
+  --nm-dark: rgba(163, 177, 198, 0.7);
+
+  /* Цвета */
+  --nm-primary: #5b8def;
+  --nm-primary-soft: #e6edfd;
+  --nm-success: #4ecb8d;
+  --nm-danger: #f2786d;
+  --nm-warning: #f5b64d;
+  --nm-info: #5cc9e8;
+
+  /* Текст */
+  --nm-text: #4a5568;
+  --nm-text-strong: #2d3748;
+  --nm-text-muted: #8b9bb4;
+  --nm-text-on: #ffffff;
+
+  /* Размеры */
+  --nm-radius-card: 20px;
+  --nm-radius-btn: 13px;
+  --nm-radius-input: 12px;
+  --nm-radius-pill: 999px;
+
+  /* Тени — raised */
+  --nm-shadow-raised:
+    9px 9px 18px var(--nm-dark),
+    -9px -9px 18px var(--nm-light);
+  --nm-shadow-soft:
+    6px 6px 12px var(--nm-dark),
+    -6px -6px 12px var(--nm-light);
+  --nm-shadow-press:
+    inset 5px 5px 10px var(--nm-dark),
+    inset -5px -5px 10px var(--nm-light);
+  --nm-shadow-press-sm:
+    inset 3px 3px 6px var(--nm-dark),
+    inset -3px -3px 6px var(--nm-light);
+  --nm-shadow-flat: none;
+
+  --nm-transition: 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+[data-theme="dark"] {
+  --nm-bg: #2a2f3a;
+  --nm-bg-2: #313744;
+  --nm-surface: #2a2f3a;
+  --nm-light: rgba(72, 80, 98, 0.6);
+  --nm-dark: rgba(12, 14, 20, 0.7);
+
+  --nm-primary: #6d9bf5;
+  --nm-primary-soft: #313b52;
+  --nm-success: #4ecb8d;
+  --nm-danger: #f2786d;
+  --nm-warning: #f5b64d;
+  --nm-info: #5cc9e8;
+
+  --nm-text: #b9c3d4;
+  --nm-text-strong: #e6ebf4;
+  --nm-text-muted: #78849c;
+
+  --nm-shadow-raised:
+    9px 9px 18px var(--nm-dark),
+    -9px -9px 18px var(--nm-light);
+  --nm-shadow-soft:
+    6px 6px 12px var(--nm-dark),
+    -6px -6px 12px var(--nm-light);
+  --nm-shadow-press:
+    inset 5px 5px 10px var(--nm-dark),
+    inset -5px -5px 10px var(--nm-light);
+  --nm-shadow-press-sm:
+    inset 3px 3px 6px var(--nm-dark),
+    inset -3px -3px 6px var(--nm-light);
+}
+
+/* ---------- База ---------- */
+
+html, body { height: 100%; }
+
+body {
+  font-family: "Manrope", "Segoe UI", system-ui, sans-serif;
+  background: var(--nm-bg);
+  color: var(--nm-text);
+  font-size: 16px;
+  transition: background var(--nm-transition), color var(--nm-transition);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--nm-text-strong);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+h2 { font-size: clamp(1.35rem, 2.2vw, 1.7rem); }
+h5 { font-size: clamp(0.95rem, 1.2vw, 1.05rem); }
+
+.text-muted { color: var(--nm-text-muted) !important; }
+.text-success { color: var(--nm-success) !important; }
+.text-danger { color: var(--nm-danger) !important; }
+.text-primary { color: var(--nm-primary) !important; }
+
+a { color: var(--nm-primary); text-decoration: none; }
+a:hover { color: var(--nm-primary); }
+
+/* ---------- Карточки ---------- */
+
+.card {
+  background: var(--nm-surface);
+  border: none;
+  border-radius: var(--nm-radius-card);
+  box-shadow: var(--nm-shadow-raised);
+  transition: box-shadow var(--nm-transition), transform var(--nm-transition);
+}
+.card:hover {
+  box-shadow: var(--nm-shadow-raised);
+}
+.card.card-stat {
+  background: var(--nm-surface);
+}
+.card-body { padding: 1.25rem 1.4rem; }
+.card-title { color: var(--nm-text-strong); margin-bottom: 0.6rem; }
+
+.stat-value {
+  font-size: clamp(1.5rem, 3vw, 1.9rem);
+  font-weight: 800;
+  color: var(--nm-text-strong);
+  letter-spacing: -0.02em;
+}
+
+/* ---------- Кнопки ---------- */
+
+.btn {
+  border: none;
+  border-radius: var(--nm-radius-btn);
+  font-weight: 600;
+  box-shadow: var(--nm-shadow-soft);
+  transition: box-shadow var(--nm-transition), transform var(--nm-transition),
+              background var(--nm-transition), color var(--nm-transition);
+  padding: 0.5rem 1.1rem;
+}
+.btn:active {
+  box-shadow: var(--nm-shadow-press);
+  transform: translateY(1px);
+}
+.btn:focus-visible {
+  box-shadow: var(--nm-shadow-press), 0 0 0 3px rgba(91, 141, 239, 0.35);
+}
+
+.btn-primary {
+  background: linear-gradient(145deg, var(--nm-primary), #4d7be0);
+  color: #fff;
+  box-shadow: 6px 6px 14px var(--nm-dark), -6px -6px 14px var(--nm-light);
+}
+.btn-primary:hover { background: var(--nm-primary); color: #fff; }
+.btn-primary:active { box-shadow: inset 4px 4px 8px rgba(0,0,0,0.25); color: #fff; }
+
+.btn-success {
+  background: linear-gradient(145deg, var(--nm-success), #3cb87b);
+  color: #fff;
+}
+.btn-success:hover { background: var(--nm-success); color: #fff; }
+
+.btn-danger {
+  background: linear-gradient(145deg, var(--nm-danger), #e25f55);
+  color: #fff;
+}
+.btn-danger:hover { background: var(--nm-danger); color: #fff; }
+
+.btn-warning { background: linear-gradient(145deg, var(--nm-warning), #eba63a); color: #2d3748; }
+.btn-warning:hover { background: var(--nm-warning); color: #2d3748; }
+
+.btn-secondary, .btn-outline-secondary, .btn-outline-primary,
+.btn-outline-success, .btn-outline-danger, .btn-outline-warning,
+.btn-outline-light {
+  background: var(--nm-surface);
+  color: var(--nm-text);
+  box-shadow: var(--nm-shadow-soft);
+}
+.btn-outline-primary { color: var(--nm-primary); }
+.btn-outline-success { color: var(--nm-success); }
+.btn-outline-danger { color: var(--nm-danger); }
+.btn-outline-warning { color: #b5831f; }
+.btn-outline-secondary:hover, .btn-outline-primary:hover,
+.btn-outline-success:hover, .btn-outline-danger:hover,
+.btn-outline-warning:hover {
+  background: var(--nm-surface);
+  color: var(--nm-text);
+  box-shadow: var(--nm-shadow-press);
+}
+
+.btn-sm { border-radius: 10px; padding: 0.32rem 0.75rem; font-size: 0.82rem; }
+
+/* ---------- Формы ---------- */
+
+.form-control, .form-select {
+  background: var(--nm-bg);
+  border: none;
+  border-radius: var(--nm-radius-input);
+  box-shadow: var(--nm-shadow-press-sm);
+  color: var(--nm-text);
+  transition: box-shadow var(--nm-transition), background var(--nm-transition);
+}
+.form-control:focus, .form-select:focus {
+  background: var(--nm-bg);
+  color: var(--nm-text);
+  box-shadow: var(--nm-shadow-press-sm), 0 0 0 3px rgba(91, 141, 239, 0.3);
+  border: none;
+}
+.form-control::placeholder { color: var(--nm-text-muted); }
+.form-control-sm, .form-select-sm { border-radius: 10px; }
+
+.input-group-text {
+  background: var(--nm-bg);
+  border: none;
+  color: var(--nm-text-muted);
+  box-shadow: inset 3px 3px 6px var(--nm-dark), inset -3px -3px 6px var(--nm-light);
+  border-radius: 12px 0 0 12px;
+}
+
+.form-label { color: var(--nm-text-muted); font-weight: 600; font-size: 0.85rem; }
+
+/* ---------- Таблицы ---------- */
+
+.table { color: var(--nm-text); }
+.table thead th {
+  color: var(--nm-text-muted);
+  font-weight: 700;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid rgba(139, 155, 180, 0.25);
+}
+.table-light {
+  background: transparent;
+  color: var(--nm-text);
+}
+.table-light th { background: transparent; color: var(--nm-text-muted); }
+.table > :not(caption) > * > * { background: transparent; border-bottom-color: rgba(139, 155, 180, 0.18); }
+.table-hover > tbody > tr:hover > * { background: rgba(91, 141, 239, 0.07); }
+
+/* ---------- Badge ---------- */
+
+.badge {
+  font-weight: 600;
+  padding: 0.4em 0.7em;
+  border-radius: var(--nm-radius-pill);
+}
+.badge.bg-success { background: var(--nm-success) !important; color: #fff; }
+.badge.bg-danger { background: var(--nm-danger) !important; color: #fff; }
+.badge.bg-secondary { background: var(--nm-text-muted) !important; color: #fff; }
+.badge.bg-warning { background: var(--nm-warning) !important; color: #2d3748; }
+.badge.bg-primary { background: var(--nm-primary) !important; color: #fff; }
+.badge.text-dark { color: #2d3748; }
+
+/* ---------- Alerts ---------- */
+
+.alert {
+  border: none;
+  border-radius: var(--nm-radius-card);
+  box-shadow: var(--nm-shadow-soft);
+  color: var(--nm-text);
+}
+.alert-info { background: var(--nm-primary-soft); color: #3a6fd0; }
+.alert-warning { background: rgba(245, 182, 77, 0.18); color: #a8791d; }
+.alert-danger { background: rgba(242, 120, 109, 0.16); color: #c85a4f; }
+.alert-success { background: rgba(78, 203, 141, 0.16); color: #2f9e6b; }
+.alert-light { background: var(--nm-surface); color: var(--nm-text); box-shadow: var(--nm-shadow-soft); }
+
+/* ---------- Навигация: сайдбар (desktop) ---------- */
+
+.nm-sidebar {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: 250px;
+  padding: 1.5rem 1.25rem;
+  background: var(--nm-surface);
+  box-shadow: var(--nm-shadow-raised);
+  z-index: 1030;
+  overflow-y: auto;
+  transition: background var(--nm-transition);
+}
+
+.nm-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: var(--nm-text-strong);
+  margin-bottom: 1.8rem;
+  text-decoration: none;
+}
+.nm-brand:hover { color: var(--nm-text-strong); }
+.nm-brand-logo {
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  border-radius: 13px;
+  background: var(--nm-surface);
+  box-shadow: var(--nm-shadow-soft);
+  color: var(--nm-primary);
+  font-size: 1.15rem;
+}
+
+.nm-nav { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.nm-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.62rem 0.9rem;
+  border-radius: 12px;
+  color: var(--nm-text);
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: color var(--nm-transition), box-shadow var(--nm-transition);
+}
+.nm-nav-link:hover { color: var(--nm-primary); }
+.nm-nav-link.active {
+  color: var(--nm-primary);
+  box-shadow: var(--nm-shadow-press-sm);
+  background: var(--nm-bg);
+}
+.nm-nav-icon { width: 20px; text-align: center; opacity: 0.85; }
+
+/* ---------- Верхняя строка ---------- */
+
+.nm-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.8rem 1.25rem;
+  background: var(--nm-surface);
+  box-shadow: var(--nm-shadow-soft);
+  margin-bottom: 1.4rem;
+  border-radius: 16px;
+}
+
+.nm-user { color: var(--nm-text); font-weight: 600; font-size: 0.9rem; }
+
+/* ---------- Кнопки-переключатели (неоморфные) ---------- */
+
+.nm-icon-btn {
+  width: 42px; height: 42px;
+  display: grid; place-items: center;
+  border: none;
+  border-radius: 13px;
+  background: var(--nm-surface);
+  box-shadow: var(--nm-shadow-soft);
+  color: var(--nm-text);
+  transition: box-shadow var(--nm-transition), transform var(--nm-transition), color var(--nm-transition);
+}
+.nm-icon-btn:hover { color: var(--nm-primary); }
+.nm-icon-btn:active { box-shadow: var(--nm-shadow-press-sm); }
+
+/* ---------- Нижняя навигация (mobile) ---------- */
+
+.nm-bottombar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 1030;
+  display: none;
+  align-items: stretch;
+  background: var(--nm-surface);
+  box-shadow: 0 -6px 18px var(--nm-dark);
+  border-radius: 20px 20px 0 0;
+  padding: 0.35rem 0.25rem calc(0.35rem + env(safe-area-inset-bottom));
+}
+.nm-bottom-item {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 0.45rem 0.2rem;
+  border: none;
+  background: transparent;
+  color: var(--nm-text-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 12px;
+}
+.nm-bottom-item .nm-nav-icon { font-size: 1.15rem; }
+.nm-bottom-item.active {
+  color: var(--nm-primary);
+  box-shadow: var(--nm-shadow-press-sm);
+  background: var(--nm-bg);
+}
+
+/* ---------- Drawer (mobile "Ещё") ---------- */
+
+.nm-drawer { width: 82%; max-width: 340px; }
+.offcanvas {
+  background: var(--nm-bg) !important;
+  color: var(--nm-text);
+  box-shadow: var(--nm-shadow-raised);
+}
+.offcanvas-title { color: var(--nm-text-strong); font-weight: 700; }
+
+/* ---------- Progress ---------- */
+
+.progress {
+  background: var(--nm-bg);
+  box-shadow: var(--nm-shadow-press-sm);
+  border-radius: var(--nm-radius-pill);
+}
+.progress-bar { background: var(--nm-primary); border-radius: var(--nm-radius-pill); }
+
+/* ---------- Pagination ---------- */
+
+.pagination .page-link {
+  background: var(--nm-surface);
+  border: none;
+  color: var(--nm-text);
+  box-shadow: var(--nm-shadow-soft);
+  margin: 0 0.2rem;
+  border-radius: 10px;
+}
+.pagination .page-item.active .page-link {
+  background: var(--nm-primary);
+  color: #fff;
+  box-shadow: var(--nm-shadow-soft);
+}
+.pagination .page-item.disabled .page-link { color: var(--nm-text-muted); opacity: 0.6; }
+
+/* ---------- Details / Summary ---------- */
+
+summary { cursor: pointer; font-weight: 600; }
+
+/* ---------- Charts ---------- */
+
+canvas { max-width: 100%; }
+
+/* ---------- Layout ---------- */
+
+.nm-main { margin-left: 250px; padding: 1.25rem 1.5rem 4.5rem; min-height: 100vh; }
+.nm-main .container-fluid { padding: 0; }
+
+.nm-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+/* ---------- Responsive: mobile ---------- */
+
+@media (max-width: 991.98px) {
+  .nm-sidebar { display: none; }
+  .nm-main { margin-left: 0; padding: 0.6rem 0.85rem 5.5rem; }
+  .nm-topbar { border-radius: 14px; padding: 0.6rem 0.9rem; }
+  .nm-bottombar { display: flex; }
+  .nm-user-email { display: none; }
+  .nm-hide-mobile { display: none !important; }
+}
+
+/* ---------- Утилиты ---------- */
+
+.nm-raised { box-shadow: var(--nm-shadow-raised); }
+.nm-inset {
+  background: var(--nm-bg);
+  box-shadow: var(--nm-shadow-press);
+  border-radius: var(--nm-radius-card);
+}
+
+/* ---------- A11y: reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
