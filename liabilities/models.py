@@ -5,6 +5,7 @@
 """
 from datetime import date
 from decimal import Decimal
+from typing import Optional
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -117,7 +118,7 @@ class Liability(TimeStampedModel):
             return Decimal('0')
         return -self.balance if self.direction == self.OWE else self.balance
 
-    def months_left(self, today: date = None) -> int | None:
+    def months_left(self, today: date = None) -> Optional[int]:
         """Сколько месяцев осталось при текущем ежемесячном платеже (без учёта процентов
         если ставка 0, иначе — аннуитетная оценка)."""
         if not self.monthly_payment or self.balance <= 0:
@@ -133,7 +134,7 @@ class Liability(TimeStampedModel):
         n = -math.log(1 - float(bal * r / pay)) / math.log(1 + float(r))
         return int(math.ceil(n))
 
-    def days_to_due(self, today: date = None) -> int | None:
+    def days_to_due(self, today: date = None) -> Optional[int]:
         if not self.due_date:
             return None
         today = today or timezone.localdate()

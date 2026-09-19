@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Optional
 
 from django.conf import settings
 import calendar
@@ -278,7 +279,7 @@ class RecurringTemplate(TimeStampedModel):
                 m, y = 1, y + 1
         return result
 
-    def next_run_date(self, today: date = None) -> date | None:
+    def next_run_date(self, today: date = None) -> Optional[date]:
         """Ближайшая будущая (или сегодняшняя) дата срабатывания; None если шаблон неактивен."""
         if not self.is_active:
             return None
