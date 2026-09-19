@@ -22,4 +22,6 @@ urlpatterns = [
     path('recurring/new/', views.RecurringCreateView.as_view(), name='recurring_create'),
     path('recurring/<int:pk>/edit/', views.RecurringUpdateView.as_view(), name='recurring_edit'),
     path('recurring/<int:pk>/delete/', views.RecurringDeleteView.as_view(), name='recurring_delete'),
+    path('recurring/run/', views.RecurringRunNowView.as_view(), name='recurring_run_all'),
+    path('recurring/<int:pk>/run/', views.RecurringRunNowView.as_view(), name='recurring_run'),
 ]

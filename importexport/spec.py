@@ -286,6 +286,7 @@ def import_rows(user, spec: ModelSpec, rows: List[List[str]]) -> dict:
                 if existing is not None:
                     for k, v in parsed.items():
                         setattr(existing, k, v)
+                    existing.full_clean(exclude=['user'])
                     existing.save()
                     report['updated'] += 1
                 else:

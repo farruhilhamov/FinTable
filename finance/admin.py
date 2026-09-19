@@ -26,5 +26,16 @@ class TransactionAdmin(admin.ModelAdmin):
 
 @admin.register(RecurringTemplate)
 class RecurringTemplateAdmin(admin.ModelAdmin):
-    list_display = ('day_of_month', 'type', 'amount', 'account', 'category', 'is_active')
+    list_display = ('day_of_month', 'type', 'amount', 'account', 'category', 'user',
+                    'start_date', 'last_run', 'is_active')
     list_filter = ('type', 'is_active')
+    readonly_fields = ('last_run',)
+    actions = ['run_now']
+
+    @admin.action(description='Выполнить выбранные шаблоны сейчас (догнать пропущенные даты)')
+    def run_now(self, request, queryset):
+        from .services import run_recurring_templates
+        report = run_recurring_templates(template_ids=list(queryset.values_list('pk', flat=True)))
+        self.message_user(request, report.summary())
+        for err in report.errors:
+            self.message_user(request, err, level='warning')

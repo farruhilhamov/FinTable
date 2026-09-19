@@ -1,7 +1,11 @@
 from decimal import Decimal
 
 from django.conf import settings
-from django.core.validators import MinValueValidator
+import calendar
+from datetime import date
+
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Sum, F, Q
 from django.utils import timezone
@@ -114,12 +118,29 @@ class Transaction(TimeStampedModel):
     type = models.CharField('Тип', max_length=10, choices=TYPE_CHOICES)
     date = models.DateField('Дата', default=timezone.now)
     description = models.CharField('Описание', max_length=255, blank=True)
+    recurring_template = models.ForeignKey(
+        'RecurringTemplate', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='transactions', verbose_name='Регулярный шаблон',
+    )
 
     class Meta:
         ordering = ['-date', '-created_at']
+        constraints = [
+            # Один шаблон создаёт не более одной операции на дату (защита от дублей).
+            models.UniqueConstraint(
+                fields=['recurring_template', 'date'],
+                condition=Q(recurring_template__isnull=False),
+                name='unique_recurring_transaction_per_date',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.date} {self.get_type_display()} {self.amount}'
+
+    def clean(self):
+        super().clean()
+        if self.category_id and self.category.type != self.type:
+            raise ValidationError({'type': 'Тип транзакции должен совпадать с типом категории'})
 
     def save(self, *args, **kwargs):
         if self.category_id and self.category.type != self.type:
@@ -141,7 +162,15 @@ class RecurringTemplate(TimeStampedModel):
         'Сумма', max_digits=18, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))]
     )
     type = models.CharField('Тип', max_length=10, choices=Transaction.TYPE_CHOICES)
-    day_of_month = models.PositiveSmallIntegerField('День месяца', default=1)
+    day_of_month = models.PositiveSmallIntegerField(
+        'День месяца', default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(31)],
+        help_text='1–31. Если в месяце меньше дней — операция создаётся в последний день месяца.',
+    )
+    start_date = models.DateField(
+        'Действует с', default=timezone.localdate,
+        help_text='Первая операция будет создана не раньше этой даты.',
+    )
     description = models.CharField('Описание', max_length=255, blank=True)
     is_active = models.BooleanField('Активен', default=True)
     last_run = models.DateField('Последний запуск', null=True, blank=True)
@@ -151,3 +180,72 @@ class RecurringTemplate(TimeStampedModel):
 
     def __str__(self):
         return f'{self.get_type_display()} {self.amount} каждый {self.day_of_month}-й день'
+
+    # ---- валидация ----
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.category_id and self.category.type != self.type:
+            errors['type'] = 'Тип операции должен совпадать с типом категории'
+        if self.category_id and self.user_id and self.category.user_id != self.user_id:
+            errors['category'] = 'Категория принадлежит другому пользователю'
+        if self.account_id and self.user_id and self.account.user_id != self.user_id:
+            errors['account'] = 'Счёт принадлежит другому пользователю'
+        if errors:
+            raise ValidationError(errors)
+
+    # ---- расчёт дат ----
+
+    def run_day_in_month(self, year: int, month: int) -> date:
+        """Дата срабатывания в указанном месяце: day_of_month или последний день месяца."""
+        last = calendar.monthrange(year, month)[1]
+        return date(year, month, min(self.day_of_month, last))
+
+    def due_dates(self, date_to: date):
+        """Все даты, на которые шаблон должен был сработать, но ещё не сработал, по date_to включительно.
+
+        Точка отсчёта — день после last_run, но не раньше start_date.
+        """
+        if not self.is_active:
+            return []
+        anchor = self.start_date or date_to
+        if self.last_run is not None:
+            anchor = max(anchor, self.last_run + timezone.timedelta(days=1))
+        if anchor > date_to:
+            return []
+        result = []
+        y, m = anchor.year, anchor.month
+        while True:
+            d = self.run_day_in_month(y, m)
+            if d > date_to:
+                break
+            if d >= anchor:
+                result.append(d)
+            m += 1
+            if m > 12:
+                m, y = 1, y + 1
+        return result
+
+    def next_run_date(self, today: date = None) -> date | None:
+        """Ближайшая будущая (или сегодняшняя) дата срабатывания; None если шаблон неактивен."""
+        if not self.is_active:
+            return None
+        today = today or timezone.localdate()
+        anchor = max(self.start_date or today, today)
+        if self.last_run is not None and self.last_run >= anchor:
+            anchor = self.last_run + timezone.timedelta(days=1)
+        y, m = anchor.year, anchor.month
+        for _ in range(3):
+            d = self.run_day_in_month(y, m)
+            if d >= anchor:
+                return d
+            m += 1
+            if m > 12:
+                m, y = 1, y + 1
+        return None
+
+    @property
+    def is_overdue(self) -> bool:
+        """Есть ли пропущенные (не созданные) операции на сегодня."""
+        return bool(self.due_dates(timezone.localdate()))

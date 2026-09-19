@@ -39,6 +39,14 @@ echo ">>> [3/5] Migrations + collectstatic..."
 "$VENV_DIR/bin/python" manage.py migrate --noinput || echo "WARNING: migrate failed"
 "$VENV_DIR/bin/python" manage.py collectstatic --noinput || echo "WARNING: collectstatic failed"
 
+
+echo ">>> Installing cron job for recurring operations (hourly, idempotent)..."
+CRON_LINE="0 * * * * cd ${PROJECT_DIR} && ${VENV_DIR}/bin/python manage.py run_recurring >> /var/log/fintable_recurring.log 2>&1"
+( crontab -l 2>/dev/null | grep -v "manage.py run_recurring" ; echo "${CRON_LINE}" ) | crontab -
+touch /var/log/fintable_recurring.log
+# Run once now so that nothing is missed after deploy.
+"${VENV_DIR}/bin/python" manage.py run_recurring || echo "WARNING: run_recurring failed"
+
 echo ">>> [4/5] Restarting services..."
 # Ensure the gunicorn systemd unit points at the correct WSGI module.
 if ! grep -q "${WSGI_MODULE}" /etc/systemd/system/gunicorn.service; then

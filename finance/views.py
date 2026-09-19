@@ -6,10 +6,13 @@ from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.utils import timezone
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView, View
 
 from .forms import AccountForm, CategoryForm, RecurringTemplateForm, TransactionForm
 from .mixins import OwnerQuerySetMixin
+from .services import run_recurring_templates
 from .models import Account, Category, RecurringTemplate, Transaction
 
 
@@ -249,6 +252,42 @@ class RecurringListView(OwnerQuerySetMixin, ListView):
     model = RecurringTemplate
     template_name = 'finance/recurring.html'
     context_object_name = 'templates'
+
+    def get_queryset(self):
+        return super().get_queryset().select_related('account', 'category')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        today = timezone.localdate()
+        rows = []
+        overdue = 0
+        for t in ctx['templates']:
+            due = t.due_dates(today)
+            if due:
+                overdue += 1
+            rows.append({'obj': t, 'next_run': t.next_run_date(today), 'due_count': len(due)})
+        ctx['rows'] = rows
+        ctx['overdue_count'] = overdue
+        ctx['today'] = today
+        return ctx
+
+
+class RecurringRunNowView(LoginRequiredMixin, View):
+    """POST: выполнить один шаблон (pk) или все шаблоны пользователя (без pk) за сегодня."""
+
+    def post(self, request, pk=None):
+        ids = None
+        if pk is not None:
+            get_object_or_404(RecurringTemplate, pk=pk, user=request.user)
+            ids = [pk]
+        report = run_recurring_templates(user=request.user, template_ids=ids)
+        if report.created:
+            messages.success(request, report.summary())
+        else:
+            messages.info(request, 'Новых операций нет: всё уже создано.')
+        for err in report.errors:
+            messages.warning(request, err)
+        return redirect('/finance/recurring/')
 
 
 class RecurringCreateView(OwnerQuerySetMixin, CreateView):

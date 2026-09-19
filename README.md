@@ -18,7 +18,9 @@ Net Worth, статистика и импорт/экспорт CSV. Валюта
 - **Ценные бумаги / Доли** (`Security`, `SecurityValuation`): история переоценок,
   текущая стоимость = последняя оценка, P&L = текущая оценка − стоимость приобретения.
 - **Регулярные шаблоны** (`RecurringTemplate`): management-команда `run_recurring`
-  создаёт транзакции по активным шаблонам в указанный день месяца.
+  создаёт транзакции по активным шаблонам в указанный день месяца (в коротких месяцах —
+  в последний день), догоняет пропущенные даты, идемпотентна (одна операция на шаблон и дату).
+  Кнопка «Выполнить сейчас» в UI и action в админке. Cron ставится автоматически deploy-скриптами.
 - **Аналитика** (`analytics/services.py`): `calculate_pnl(user, date_from, date_to)`
   и `calculate_net_worth(user, as_of_date)` — агрегирующие ORM-запросы.
 - **Дашборд**: карточки Net Worth / P&L за месяц, график динамики капитала (Chart.js),
@@ -74,7 +76,8 @@ python manage.py run_recurring              # за сегодня
 python manage.py run_recurring --date 2026-08-22
 ```
 
-Пример cron (Linux): `0 1 * * * cd /path/to/FinTable && venv/bin/python manage.py run_recurring`.
+Deploy-скрипты ставят cron автоматически (ежечасно): `0 * * * * cd /root/FinTable && venv/bin/python manage.py run_recurring >> /var/log/fintable_recurring.log 2>&1`.
+Проверка: `crontab -l`, лог — `/var/log/fintable_recurring.log`. Флаг `--dry-run` показывает, что будет создано.
 На Windows — через Task Scheduler, запуская `run_recurring` раз в сутки.
 
 ## Тесты

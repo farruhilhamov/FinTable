@@ -4,27 +4,65 @@
 {% block content %}
 <div class="nm-section-title">
   <h2 class="mb-0">Регулярные шаблоны</h2>
-  <a href="{% url 'recurring_create' %}" class="btn btn-primary btn-sm">+ Добавить</a>
+  <div class="d-flex gap-2">
+    <form method="post" action="{% url 'recurring_run_all' %}" class="d-inline">{% csrf_token %}
+      <button class="btn btn-outline-primary btn-sm" type="submit" title="Создать все операции, срок которых уже наступил">
+        ▶ Выполнить все
+      </button>
+    </form>
+    <a href="{% url 'recurring_create' %}" class="btn btn-primary btn-sm">+ Добавить</a>
+  </div>
 </div>
+
+{% if overdue_count %}
+<div class="alert alert-warning py-2">
+  Есть шаблоны с пропущенными датами: {{ overdue_count }}. Нажмите «Выполнить все», чтобы создать операции.
+</div>
+{% endif %}
+
 <div class="table-responsive">
   <table class="table table-hover">
-    <thead class="table-light"><tr><th>День</th><th>Тип</th><th>Категория</th><th>Счёт</th><th>Сумма</th><th>Активен</th><th></th></tr></thead>
-    <tbody>
-    {% for r in templates %}
+    <thead class="table-light">
       <tr>
+        <th>День</th><th>Тип</th><th>Категория</th><th>Счёт</th><th>Сумма</th>
+        <th>Последний запуск</th><th>Следующий</th><th>Активен</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in rows %}
+      {% with r=row.obj %}
+      <tr {% if row.due_count %}class="table-warning"{% endif %}>
         <td>{{ r.day_of_month }}</td>
         <td>{{ r.get_type_display }}</td>
         <td>{{ r.category.name }}</td>
         <td>{{ r.account.name }}</td>
         <td>{{ r.amount|money }}</td>
+        <td>{% if r.last_run %}{{ r.last_run|date:"d.m.Y" }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+        <td>
+          {% if row.due_count %}
+            <span class="badge bg-warning text-dark" title="Операции не созданы">пропущено: {{ row.due_count }}</span>
+          {% elif row.next_run %}
+            {{ row.next_run|date:"d.m.Y" }}
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
         <td>{% if r.is_active %}да{% else %}нет{% endif %}</td>
-        <td class="text-end">
+        <td class="text-end text-nowrap">
+          <form method="post" action="{% url 'recurring_run' r.id %}" class="d-inline">{% csrf_token %}
+            <button class="btn btn-sm btn-outline-primary" type="submit" title="Выполнить сейчас">▶</button>
+          </form>
           <a href="{% url 'recurring_edit' r.id %}" class="btn btn-sm btn-outline-secondary">✎</a>
           <a href="{% url 'recurring_delete' r.id %}" class="btn btn-sm btn-outline-danger">✕</a>
         </td>
       </tr>
-    {% empty %}<tr><td colspan="7" class="text-center text-muted">шаблонов нет</td></tr>{% endfor %}
+      {% endwith %}
+    {% empty %}<tr><td colspan="9" class="text-center text-muted">шаблонов нет</td></tr>{% endfor %}
     </tbody>
   </table>
 </div>
+<p class="text-muted small mt-2">
+  Операции создаются автоматически раз в час на сервере. Если в месяце меньше дней, чем указано,
+  операция создаётся в последний день месяца. Пропущенные даты догоняются при следующем запуске.
+</p>
 {% endblock %}

@@ -57,7 +57,9 @@ class TransactionForm(forms.ModelForm):
 class RecurringTemplateForm(forms.ModelForm):
     class Meta:
         model = RecurringTemplate
-        fields = ['category', 'account', 'amount', 'type', 'day_of_month', 'description', 'is_active']
+        fields = ['category', 'account', 'amount', 'type', 'day_of_month', 'start_date',
+                  'description', 'is_active']
+        widgets = {'start_date': forms.DateInput(attrs={'type': 'date'})}
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -65,6 +67,11 @@ class RecurringTemplateForm(forms.ModelForm):
         if user is not None:
             self.fields['category'].queryset = Category.objects.filter(user=user, is_active=True)
             self.fields['account'].queryset = Account.objects.filter(user=user, is_active=True)
+        if self.instance and self.instance.pk and self.instance.last_run:
+            self.fields['start_date'].help_text = (
+                f'Последний запуск: {self.instance.last_run:%d.%m.%Y}. '
+                'Изменение даты начала не пересоздаёт уже созданные операции.'
+            )
 
     def clean(self):
         cleaned = super().clean()

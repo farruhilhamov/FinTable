@@ -23,7 +23,7 @@ fi
 
 echo ">>> [1/9] Updating system and installing packages..."
 apt update -y
-apt install -y python3-pip python3-venv python3-dev libpq-dev nginx openssl curl git
+apt install -y python3-pip python3-venv python3-dev libpq-dev nginx openssl curl git cron
 
 echo ">>> [2/9] Cloning / pulling code from GitHub..."
 cd "$PROJECT_DIR" 2>/dev/null || { mkdir -p "$PROJECT_DIR"; cd "$PROJECT_DIR"; }
@@ -127,6 +127,16 @@ if command -v ufw >/dev/null 2>&1; then
 fi
 
 echo ">>> [9/9] Starting services..."
+systemctl enable cron 2>/dev/null || true
+systemctl start cron 2>/dev/null || true
+
+echo ">>> Installing cron job for recurring operations (hourly, idempotent)..."
+CRON_LINE="0 * * * * cd ${PROJECT_DIR} && ${VENV_DIR}/bin/python manage.py run_recurring >> /var/log/fintable_recurring.log 2>&1"
+( crontab -l 2>/dev/null | grep -v "manage.py run_recurring" ; echo "${CRON_LINE}" ) | crontab -
+touch /var/log/fintable_recurring.log
+# Run once now so that nothing is missed after deploy.
+"${VENV_DIR}/bin/python" manage.py run_recurring || echo "WARNING: run_recurring failed"
+
 nginx -t
 systemctl daemon-reload
 systemctl enable gunicorn

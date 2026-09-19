@@ -177,12 +177,14 @@ class OnboardingWizard(NamedUrlSessionWizardView):
                     cat = Category.objects.filter(user=user, type=Category.INCOME).first()
                 acct = Account.objects.filter(user=user, is_active=True).first()
                 if cat is not None and acct is not None:
-                    RecurringTemplate.objects.create(
+                    tmpl = RecurringTemplate(
                         user=user, category=cat, account=acct,
                         amount=salary_data['amount'], type=Transaction.INCOME,
                         day_of_month=salary_data.get('day_of_month') or 5,
                         description='Зарплата (wizard)',
                     )
+                    tmpl.full_clean()
+                    tmpl.save()
                     count += 1
 
             profile, _ = UserProfile.objects.get_or_create(user=user)
