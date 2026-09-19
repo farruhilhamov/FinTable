@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}Перевод между счетами — FinTable{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-md-6">
+  <div class="nm-section-title">
+    <h2 class="mb-0">Перевод между счетами</h2>
+  </div>
+  <div class="card shadow-sm">
+    <div class="card-body p-4">
+      <p class="text-muted small">Перевод создаёт две связанные операции (списание и зачисление) и
+        не учитывается в доходах, расходах и P&amp;L.</p>
+      <form method="post">{% csrf_token %}
+        {{ form|crispy }}
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary" type="submit">Перевести</button>
+          <a href="{% url 'transactions' %}" class="btn btn-outline-secondary">Отмена</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

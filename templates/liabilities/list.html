@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load fin_tags %}
+{% block title %}Долги и кредиты — FinTable{% endblock %}
+{% block content %}
+<div class="nm-section-title">
+  <h2 class="mb-0">Долги и кредиты</h2>
+  <a href="{% url 'liability_create' %}" class="btn btn-primary btn-sm">+ Добавить</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card card-stat shadow-sm h-100"><div class="card-body">
+      <div class="text-muted small">Я должен</div>
+      <div class="stat-value text-danger">{{ total_owe|money }} UZS</div>
+      <div class="small text-muted">учитывается в Net Worth со знаком минус</div>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card card-stat shadow-sm h-100"><div class="card-body">
+      <div class="text-muted small">Мне должны</div>
+      <div class="stat-value text-success">{{ total_owed|money }} UZS</div>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card card-stat shadow-sm h-100"><div class="card-body">
+      <div class="text-muted small">Платежи в месяц</div>
+      <div class="stat-value">{{ monthly_total|money }} UZS</div>
+      <div class="small text-muted">сумма ежемесячных платежей по кредитам</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-3">
+{% for l in active %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-body d-flex flex-column">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h5 class="card-title mb-0">{{ l.name }}</h5>
+            <div class="small text-muted">{{ l.get_kind_display }}{% if l.counterparty %} · {{ l.counterparty }}{% endif %}</div>
+          </div>
+          <span class="badge {% if l.direction == 'owe' %}bg-danger{% else %}bg-success{% endif %}">{{ l.get_direction_display }}</span>
+        </div>
+        <div class="stat-value my-2">{{ l.balance|money }} <span class="small text-muted">из {{ l.principal|money }}</span></div>
+        <div class="progress mb-2" style="height:8px">
+          <div class="progress-bar bg-success" style="width:{{ l.progress_pct }}%"></div>
+        </div>
+        <div class="small text-muted mb-2">
+          погашено {{ l.progress_pct }}%
+          {% if l.annual_rate %} · {{ l.annual_rate }}% годовых{% endif %}
+          {% if l.monthly_payment %}<br>платёж {{ l.monthly_payment|money }}{% if l.payment_day %} каждое {{ l.payment_day }}-е{% endif %}{% endif %}
+          {% if l.months_left_calc %}<br>≈ {{ l.months_left_calc }} мес. до погашения{% endif %}
+          {% if l.days_to_due_calc is not None %}<br>{% if l.days_to_due_calc < 0 %}<span class="text-danger">просрочено на {{ l.days_to_due_calc|cut:"-" }} дн.</span>{% else %}срок через {{ l.days_to_due_calc }} дн. ({{ l.due_date|date:"d.m.Y" }}){% endif %}{% endif %}
+          {% if l.recurring_template and l.recurring_template.is_active %}<br><span class="text-primary">↻ автоплатёж включён</span>{% endif %}
+        </div>
+        <div class="mt-auto d-flex gap-1 flex-wrap">
+          <a href="{% url 'liability_pay' l.id %}" class="btn btn-sm btn-primary">Внести платёж</a>
+          <a href="{% url 'liability_edit' l.id %}" class="btn btn-sm btn-outline-secondary">✎</a>
+          <a href="{% url 'liability_delete' l.id %}" class="btn btn-sm btn-outline-danger">✕</a>
+        </div>
+      </div>
+    </div>
+  </div>
+{% empty %}
+  <div class="col-12 text-center text-muted py-4">Активных долгов нет — отлично. Добавьте кредит или займ, чтобы Net Worth был честным.</div>
+{% endfor %}
+</div>
+
+{% if closed %}
+<h5 class="mt-4">Погашенные</h5>
+<ul class="list-unstyled small">
+  {% for l in closed %}
+  <li>{{ l.name }} — {{ l.principal|money }} UZS, погашен {{ l.closed_date|date:"d.m.Y" }}
+    <a href="{% url 'liability_delete' l.id %}" class="btn btn-sm btn-outline-danger">✕</a></li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

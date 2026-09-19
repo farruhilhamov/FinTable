@@ -28,6 +28,9 @@
     <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'accounts' %}active{% endif %}" href="{% url 'accounts' %}"><span class="nm-nav-icon">▣</span>Счета</a></li>
     <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'deposits' %}active{% endif %}" href="{% url 'deposits' %}"><span class="nm-nav-icon">◫</span>Вклады</a></li>
     <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'securities' %}active{% endif %}" href="{% url 'securities' %}"><span class="nm-nav-icon">◆</span>Бумаги/доли</a></li>
+    <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'liabilities' %}active{% endif %}" href="{% url 'liabilities' %}"><span class="nm-nav-icon">▽</span>Долги</a></li>
+    <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'goals' %}active{% endif %}" href="{% url 'goals' %}"><span class="nm-nav-icon">◎</span>Цели</a></li>
+    <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'budgets' %}active{% endif %}" href="{% url 'budgets' %}"><span class="nm-nav-icon">◔</span>Бюджеты</a></li>
     <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'categories' %}active{% endif %}" href="{% url 'categories' %}"><span class="nm-nav-icon">◎</span>Категории</a></li>
     <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'recurring' %}active{% endif %}" href="{% url 'recurring' %}"><span class="nm-nav-icon">↻</span>Регулярные</a></li>
     <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'stats' %}active{% endif %}" href="{% url 'stats' %}"><span class="nm-nav-icon">▥</span>Статистика</a></li>
@@ -46,6 +49,9 @@
     </span>
   </div>
   <div class="d-flex align-items-center gap-2">
+    <button class="btn btn-primary btn-sm" type="button" id="quickAddBtn"
+            hx-get="{% url 'transaction_create' %}?modal=1" hx-target="#quickAddContent" hx-swap="innerHTML"
+            data-bs-toggle="modal" data-bs-target="#quickAddModal" title="Быстрая операция (клавиша N)">+ Операция</button>
     <span class="nm-user nm-user-email">{{ user.email }}</span>
     <button class="nm-icon-btn" id="themeToggle" type="button" aria-label="Переключить тему">◐</button>
     <form method="post" action="{% url 'logout' %}" class="d-inline">
@@ -68,7 +74,10 @@
       <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'accounts' %}active{% endif %}" href="{% url 'accounts' %}"><span class="nm-nav-icon">▣</span>Счета</a></li>
       <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'deposits' %}active{% endif %}" href="{% url 'deposits' %}"><span class="nm-nav-icon">◫</span>Вклады</a></li>
       <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'securities' %}active{% endif %}" href="{% url 'securities' %}"><span class="nm-nav-icon">◆</span>Бумаги/доли</a></li>
-      <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'categories' %}active{% endif %}" href="{% url 'categories' %}"><span class="nm-nav-icon">◎</span>Категории</a></li>
+    <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'liabilities' %}active{% endif %}" href="{% url 'liabilities' %}"><span class="nm-nav-icon">▽</span>Долги</a></li>
+    <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'goals' %}active{% endif %}" href="{% url 'goals' %}"><span class="nm-nav-icon">◎</span>Цели</a></li>
+      <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'budgets' %}active{% endif %}" href="{% url 'budgets' %}"><span class="nm-nav-icon">◔</span>Бюджеты</a></li>
+    <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'categories' %}active{% endif %}" href="{% url 'categories' %}"><span class="nm-nav-icon">◎</span>Категории</a></li>
       <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'recurring' %}active{% endif %}" href="{% url 'recurring' %}"><span class="nm-nav-icon">↻</span>Регулярные</a></li>
       <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'stats' %}active{% endif %}" href="{% url 'stats' %}"><span class="nm-nav-icon">▥</span>Статистика</a></li>
       <li><a class="nm-nav-link {% if request.resolver_match.url_name == 'importexport' %}active{% endif %}" href="{% url 'importexport' %}"><span class="nm-nav-icon">⇅</span>Импорт/экспорт</a></li>
@@ -82,10 +91,18 @@
   <a class="nm-bottom-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}"><span class="nm-nav-icon">▤</span>Главная</a>
   <a class="nm-bottom-item {% if request.resolver_match.url_name == 'transactions' %}active{% endif %}" href="{% url 'transactions' %}"><span class="nm-nav-icon">⇄</span>Операции</a>
   <a class="nm-bottom-item {% if request.resolver_match.url_name == 'accounts' %}active{% endif %}" href="{% url 'accounts' %}"><span class="nm-nav-icon">▣</span>Счета</a>
-  <a class="nm-bottom-item {% if request.resolver_match.url_name == 'deposits' %}active{% endif %}" href="{% url 'deposits' %}"><span class="nm-nav-icon">◫</span>Вклады</a>
+  <button class="nm-bottom-item" type="button"
+          hx-get="{% url 'transaction_create' %}?modal=1" hx-target="#quickAddContent" hx-swap="innerHTML"
+          data-bs-toggle="modal" data-bs-target="#quickAddModal"><span class="nm-nav-icon">＋</span>Добавить</button>
   <button class="nm-bottom-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#navDrawer"><span class="nm-nav-icon">☰</span>Ещё</button>
 </nav>
 
+{# ---------- Модалка быстрого ввода ---------- #}
+<div class="modal fade" id="quickAddModal" tabindex="-1" aria-hidden="true">
+  <div id="quickAddContent">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-body text-center text-muted py-4">Загрузка…</div></div></div>
+  </div>
+</div>
 {% endif %}
 
 <main class="nm-main">
@@ -103,6 +120,23 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function () {
+  // Быстрый ввод: клавиша N открывает модалку (не в полях ввода).
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'n' && e.key !== 'N') return;
+    var tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+    var btn = document.getElementById('quickAddBtn');
+    if (btn) btn.click();
+  });
+  // CSRF для htmx-запросов.
+  document.addEventListener('htmx:configRequest', function (e) {
+    var m = document.cookie.match(/csrftoken=([^;]+)/);
+    if (m) e.detail.headers['X-CSRFToken'] = m[1];
+  });
+})();
+</script>
 <script>
 (function () {
   // Тёмная тема: читаем сохранённое, применяем до отрисовки.

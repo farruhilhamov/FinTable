@@ -46,6 +46,11 @@ class Deposit(TimeStampedModel):
     )
     status = models.CharField('Статус', max_length=10, choices=STATUS_CHOICES, default=ACTIVE)
     closed_date = models.DateField('Дата закрытия', null=True, blank=True)
+    end_date = models.DateField(
+        'Дата окончания', null=True, blank=True,
+        help_text='Срок вклада. При наступлении вклад закрывается автоматически, деньги возвращаются на счёт.',
+    )
+    auto_close = models.BooleanField('Закрывать автоматически по сроку', default=True)
 
     class Meta:
         ordering = ['-start_date']
@@ -101,5 +106,45 @@ class Deposit(TimeStampedModel):
 
     def close(self, closed_date=None):
         self.status = self.CLOSED
-        self.closed_date = closed_date or timezone.now().date()
+        self.closed_date = closed_date or timezone.localdate()
         self.save(update_fields=['status', 'closed_date', 'updated_at'])
+
+    def days_to_end(self, today=None):
+        if not self.end_date or self.status != self.ACTIVE:
+            return None
+        today = today or timezone.localdate()
+        return (self.end_date - today).days
+
+    @property
+    def is_matured(self) -> bool:
+        return bool(self.end_date and self.status == self.ACTIVE and self.end_date <= timezone.localdate())
+
+    def mature(self, on_date=None):
+        """Закрыть вклад по сроку и вернуть тело + проценты на привязанный счёт.
+
+        Создаёт две операции: возврат тела («Пополнение») и доход («Доход от вклада»),
+        чтобы Net Worth не изменился скачком, а баланс счёта вырос на всю сумму.
+        """
+        from django.db import transaction as db_tx
+        from finance.models import Category, Transaction
+
+        on_date = on_date or self.end_date or timezone.localdate()
+        accrued = self.get_accrued_income(on_date)
+        created = []
+        with db_tx.atomic():
+            self.close(on_date)
+            if self.account_id:
+                principal_cat = Category.get_or_create_system(self.user, 'Пополнение', Category.INCOME)
+                income_cat = Category.get_or_create_system(self.user, 'Доход от вклада', Category.INCOME)
+                created.append(Transaction.objects.create(
+                    user=self.user, account=self.account, category=principal_cat,
+                    amount=self.principal_amount, type=Transaction.INCOME, date=on_date,
+                    description=f'Возврат тела вклада «{self.name}»',
+                ))
+                if accrued > 0:
+                    created.append(Transaction.objects.create(
+                        user=self.user, account=self.account, category=income_cat,
+                        amount=accrued, type=Transaction.INCOME, date=on_date,
+                        description=f'Проценты по вкладу «{self.name}»',
+                    ))
+        return created

@@ -35,6 +35,17 @@ if [ -f requirements.txt ]; then
 fi
 deactivate
 
+echo ">>> Backing up database before migrations..."
+mkdir -p "$PROJECT_DIR/backups"
+if [ -f "$PROJECT_DIR/db.sqlite3" ]; then
+    cp "$PROJECT_DIR/db.sqlite3" "$PROJECT_DIR/backups/db-$(date +%Y%m%d-%H%M%S).sqlite3"
+    ls -t "$PROJECT_DIR/backups"/db-*.sqlite3 | tail -n +11 | xargs -r rm -f   # keep last 10
+    echo "   SQLite backup saved to backups/"
+elif [ -n "$DATABASE_URL" ] && command -v pg_dump >/dev/null 2>&1; then
+    pg_dump "$DATABASE_URL" > "$PROJECT_DIR/backups/db-$(date +%Y%m%d-%H%M%S).sql" || echo "WARNING: pg_dump failed"
+fi
+mkdir -p "$PROJECT_DIR/media"
+
 echo ">>> [3/5] Migrations + collectstatic..."
 "$VENV_DIR/bin/python" manage.py migrate --noinput || echo "WARNING: migrate failed"
 "$VENV_DIR/bin/python" manage.py collectstatic --noinput || echo "WARNING: collectstatic failed"

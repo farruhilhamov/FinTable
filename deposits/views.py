@@ -20,6 +20,7 @@ class DepositListView(OwnerQuerySetMixin, ListView):
         for d in ctx['deposits']:
             d.accrued = d.get_accrued_income()
             d.balance = d.current_balance
+            d.days_left = d.days_to_end()
         return ctx
 
 
@@ -54,8 +55,12 @@ class DepositUpdateView(OwnerQuerySetMixin, UpdateView):
 class DepositCloseView(OwnerQuerySetMixin, View):
     def post(self, request, pk):
         dep = get_object_or_404(Deposit, pk=pk, user=request.user)
-        dep.close()
-        messages.success(request, f'Вклад «{dep.name}» закрыт.')
+        if request.POST.get('payout') and dep.account_id:
+            dep.mature(None)
+            messages.success(request, f'Вклад «{dep.name}» закрыт, деньги возвращены на счёт «{dep.account.name}».')
+        else:
+            dep.close()
+            messages.success(request, f'Вклад «{dep.name}» закрыт.')
         return redirect('/deposits/')
 
 

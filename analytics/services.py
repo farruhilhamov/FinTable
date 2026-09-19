@@ -18,7 +18,7 @@ from django.db.models.functions import Coalesce
 from finance.templatetags.fin_tags import fmt_money as _fmt
 
 from deposits.models import Deposit
-from finance.models import Account, Transaction
+from finance.models import Account, Budget, RecurringTemplate, Transaction
 from securities.models import Security, SecurityValuation
 
 User = get_user_model()
@@ -76,18 +76,40 @@ def _securities_value(user, as_of_date: Optional[date] = None) -> Decimal:
     return total
 
 
+def _liabilities_balance(user, as_of_date: Optional[date] = None) -> Decimal:
+    """Знаковая сумма обязательств: долги минус, дебиторка плюс.
+
+    История остатков не хранится, поэтому для прошлых дат берётся текущий остаток
+    (обязательства, открытые позже as_of_date, не учитываются).
+    """
+    from liabilities.models import Liability
+    qs = Liability.objects.filter(user=user, status=Liability.ACTIVE)
+    if as_of_date is not None:
+        qs = qs.filter(start_date__lte=as_of_date)
+    total = Decimal('0')
+    for l in qs:
+        total += l.signed_balance
+    return total
+
+
 def calculate_net_worth(user, as_of_date: Optional[date] = None) -> Decimal:
-    """Net Worth = счета + вклады + ценные бумаги на дату."""
+    """Net Worth = счета + вклады + ценные бумаги − долги (+ дебиторка) на дату."""
     target = as_of_date or date.today()
     accounts = _accounts_balance(user, target)
     deposits = _deposits_balance(user, target)
     securities = _securities_value(user, target)
-    return (accounts + deposits + securities).quantize(Decimal('0.01'))
+    liabilities = _liabilities_balance(user, target)
+    return (accounts + deposits + securities + liabilities).quantize(Decimal('0.01'))
+
+
+def _operational_tx(user):
+    """Транзакции, влияющие на P&L: без переводов между счетами."""
+    return Transaction.objects.filter(user=user).exclude(category__is_transfer=True)
 
 
 def _transactions_pnl(user, date_from: date, date_to: date) -> Decimal:
     """Доходы минус расходы по транзакциям за период (один агрегирующий запрос)."""
-    qs = Transaction.objects.filter(user=user, date__gte=date_from, date__lte=date_to)
+    qs = _operational_tx(user).filter(date__gte=date_from, date__lte=date_to)
     agg = qs.aggregate(
         income=Coalesce(
             Sum('amount', filter=Q(type=Transaction.INCOME)), Decimal('0')
@@ -188,7 +210,7 @@ def monthly_income_expense(user, months: int = 12):
         first = first.replace(day=1)
         next_month = (first.replace(day=28) + timedelta(days=4)).replace(day=1)
         last = next_month - timedelta(days=1)
-        qs = Transaction.objects.filter(user=user, date__gte=first, date__lte=last)
+        qs = _operational_tx(user).filter(date__gte=first, date__lte=last)
         agg = qs.aggregate(
             income=Coalesce(
                 Sum('amount', filter=Q(type=Transaction.INCOME)), Decimal('0')
@@ -208,8 +230,8 @@ def monthly_income_expense(user, months: int = 12):
 def category_breakdown(user, date_from: date, date_to: date, tx_type: str):
     """Суммы по категориям за период (для pie/bar диаграмм)."""
     qs = (
-        Transaction.objects
-        .filter(user=user, type=tx_type, date__gte=date_from, date__lte=date_to)
+        _operational_tx(user)
+        .filter(type=tx_type, date__gte=date_from, date__lte=date_to)
         .values('category__name')
         .annotate(total=Coalesce(Sum('amount'), Decimal('0')))
         .order_by('-total')
@@ -277,12 +299,14 @@ def net_worth_breakdown(user, as_of_date: Optional[date] = None) -> Dict:
     accounts = _accounts_balance(user, target)
     deposits = _deposits_balance(user, target)
     securities = _securities_value(user, target)
-    total = (accounts + deposits + securities).quantize(Decimal('0.01'))
+    liabilities = _liabilities_balance(user, target)
+    total = (accounts + deposits + securities + liabilities).quantize(Decimal('0.01'))
+    gross = accounts + deposits + securities  # активы без учёта долгов — база для долей
 
     def _pct(part: Decimal) -> Decimal:
-        if total == 0:
+        if gross == 0:
             return Decimal('0')
-        return (part / total * Decimal('100')).quantize(Decimal('1'))
+        return (part / gross * Decimal('100')).quantize(Decimal('1'))
 
     components = [
         {
@@ -301,9 +325,18 @@ def net_worth_breakdown(user, as_of_date: Optional[date] = None) -> Dict:
             'url': '/securities/',
         },
     ]
+    liab_component = {
+        'key': 'liabilities', 'label': 'Долги и кредиты',
+        'value': liabilities.quantize(Decimal('0.01')), 'pct': _pct(liabilities),
+        'url': '/liabilities/',
+    }
+    positive = [c for c in components if c['value'] > 0] or components
     return {
         'total': total,
-        'components': [c for c in components if c['value'] > 0] or components,
+        'gross': gross.quantize(Decimal('0.01')),
+        'components': positive + ([liab_component] if liabilities != 0 else []),
+        'pie_components': positive,
+        'liabilities': liab_component,
         'all_components': components,
     }
 
@@ -318,8 +351,8 @@ def _category_sums(user, date_from: date, date_to: date) -> Dict[str, Dict[str, 
     Возвращает {category_name: {'income': Decimal, 'expense': Decimal}}.
     """
     qs = (
-        Transaction.objects
-        .filter(user=user, date__gte=date_from, date__lte=date_to)
+        _operational_tx(user)
+        .filter(date__gte=date_from, date__lte=date_to)
         .values('category__name', 'type')
         .annotate(total=Coalesce(Sum('amount'), Decimal('0')))
     )
@@ -496,8 +529,8 @@ def _detect_anomalies(user, date_from: date, date_to: date, months_back: int = 6
     hist_from = _shift_months(date_from, -months_back)
     # средняя сумма транзакции по категории за историю
     hist_avg = (
-        Transaction.objects
-        .filter(user=user, date__gte=hist_from, date__lt=date_from)
+        _operational_tx(user)
+        .filter(date__gte=hist_from, date__lt=date_from)
         .values('category__name')
         .annotate(avg=Coalesce(Avg('amount'), Decimal('0')))
     )
@@ -508,8 +541,8 @@ def _detect_anomalies(user, date_from: date, date_to: date, months_back: int = 6
 
     anomalies = []
     cur_tx = (
-        Transaction.objects
-        .filter(user=user, date__gte=date_from, date__lte=date_to)
+        _operational_tx(user)
+        .filter(date__gte=date_from, date__lte=date_to)
         .select_related('category', 'account')
         .order_by('-amount')
     )
@@ -552,3 +585,95 @@ def pnl_components_history(user, periods: int = 6) -> List[Dict]:
         })
     return result
 
+
+
+# ---------------------------------------------------------------------------
+# Бюджеты, ближайшие регулярные платежи, норма сбережений
+# ---------------------------------------------------------------------------
+
+def budget_status(user, date_from: date, date_to: date) -> List[Dict]:
+    """Состояние бюджетов за период: потрачено / лимит / % / статус.
+
+    Лимит — месячный. Для периода длиннее месяца лимит масштабируется
+    по числу задействованных месяцев.
+    """
+    months = (date_to.year - date_from.year) * 12 + (date_to.month - date_from.month) + 1
+    months = max(months, 1)
+    spent_qs = (
+        Transaction.objects
+        .filter(user=user, type=Transaction.EXPENSE, date__gte=date_from, date__lte=date_to)
+        .values('category_id')
+        .annotate(total=Coalesce(Sum('amount'), Decimal('0')))
+    )
+    spent_by_cat = {r['category_id']: _ensure_decimal(r['total']) for r in spent_qs}
+    out = []
+    for b in Budget.objects.filter(user=user, is_active=True).select_related('category'):
+        limit = _ensure_decimal(b.limit) * months
+        spent = spent_by_cat.get(b.category_id, Decimal('0'))
+        pct = int((spent / limit * 100).quantize(Decimal('1'))) if limit else 0
+        if pct >= 100:
+            status = 'over'
+        elif pct >= 80:
+            status = 'warning'
+        else:
+            status = 'ok'
+        out.append({
+            'budget': b,
+            'category': b.category.name,
+            'limit': limit.quantize(Decimal('0.01')),
+            'spent': spent.quantize(Decimal('0.01')),
+            'left': (limit - spent).quantize(Decimal('0.01')),
+            'pct': pct,
+            'bar_pct': min(pct, 100),
+            'status': status,
+        })
+    out.sort(key=lambda r: -r['pct'])
+    return out
+
+
+def upcoming_recurring(user, days: int = 7, today: Optional[date] = None) -> Dict:
+    """Регулярные операции на ближайшие N дней + просроченные (не созданные)."""
+    today = today or date.today()
+    horizon = today + timedelta(days=days)
+    items = []
+    overdue = 0
+    income = Decimal('0')
+    expense = Decimal('0')
+    qs = RecurringTemplate.objects.filter(user=user, is_active=True).select_related('category', 'account')
+    for t in qs:
+        due = t.due_dates(today)
+        if due:
+            overdue += 1
+        nxt = t.next_run_date(today)
+        if nxt is None or nxt > horizon:
+            continue
+        items.append({'template': t, 'date': nxt, 'is_due': bool(due)})
+        if t.type == Transaction.INCOME:
+            income += _ensure_decimal(t.amount)
+        else:
+            expense += _ensure_decimal(t.amount)
+    items.sort(key=lambda i: i['date'])
+    return {'items': items, 'overdue': overdue, 'income': income, 'expense': expense,
+            'net': income - expense, 'horizon': horizon}
+
+
+def savings_rate(user, date_from: date, date_to: date) -> Dict:
+    """Норма сбережений = (доходы − расходы) / доходы за период (без переводов)."""
+    agg = _operational_tx(user).filter(date__gte=date_from, date__lte=date_to).aggregate(
+        income=Coalesce(Sum('amount', filter=Q(type=Transaction.INCOME)), Decimal('0')),
+        expense=Coalesce(Sum('amount', filter=Q(type=Transaction.EXPENSE)), Decimal('0')),
+    )
+    income = _ensure_decimal(agg['income'])
+    expense = _ensure_decimal(agg['expense'])
+    saved = income - expense
+    rate = (saved / income * 100).quantize(Decimal('0.1')) if income > 0 else None
+    return {'income': income, 'expense': expense, 'saved': saved, 'rate': rate}
+
+
+def savings_rate_history(user, months: int = 12) -> List[Dict]:
+    out = []
+    for row in monthly_income_expense(user, months=months):
+        inc, exp = row['income'], row['expense']
+        rate = ((inc - exp) / inc * 100).quantize(Decimal('0.1')) if inc > 0 else None
+        out.append({'month': row['month'], 'rate': rate})
+    return out

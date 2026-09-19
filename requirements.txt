@@ -5,3 +5,4 @@ psycopg2-binary==2.9.9
 django-crispy-forms==2.1
 crispy-bootstrap5==2024.2
 django-formtools==2.3
+Pillow==10.4.0

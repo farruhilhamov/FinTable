@@ -8,7 +8,7 @@
   </div>
   <div class="card shadow-sm">
     <div class="card-body p-4">
-      <form method="post">{% csrf_token %}
+      <form method="post" enctype="multipart/form-data">{% csrf_token %}
         {{ form|crispy }}
         <div class="d-flex gap-2">
           <button class="btn btn-primary" type="submit">Сохранить</button>

@@ -36,3 +36,6 @@ def create_default_categories(sender, instance, created, **kwargs):
     ]
     if to_create:
         Category.objects.bulk_create(to_create)
+
+    # Технические категории для переводов между счетами
+    Category.transfer_pair(instance)

@@ -65,6 +65,7 @@ def run_template(
             dates = locked.due_dates(target)
             if not dates:
                 return
+            last_done = None
             for d in dates:
                 if dry_run:
                     report.created += 1
@@ -84,15 +85,38 @@ def run_template(
                 except IntegrityError:
                     # Уже есть операция по этому шаблону на эту дату.
                     report.skipped += 1
+                    last_done = d
                     continue
                 report.created += 1
                 report.created_transactions.append(tx)
-            if not dry_run:
-                locked.last_run = dates[-1]
+                last_done = d
+                if _apply_liability_payment(locked, tx):
+                    # Обязательство погашено — дальнейшие платежи не нужны.
+                    break
+            if not dry_run and last_done is not None:
+                locked.last_run = last_done
                 locked.save(update_fields=['last_run', 'updated_at'])
     except Exception as exc:  # noqa: BLE001 — один шаблон не должен ронять весь прогон
         logger.exception('run_recurring: ошибка шаблона #%s', tmpl.pk)
         report.errors.append(f'Шаблон #{tmpl.pk}: {exc}')
+
+
+def _apply_liability_payment(tmpl: RecurringTemplate, tx: Transaction) -> bool:
+    """Если шаблон — автоплатёж по обязательству, уменьшаем его остаток.
+
+    Возвращает True, если обязательство после платежа полностью погашено
+    (шаблон при этом деактивируется).
+    """
+    from liabilities.models import Liability
+    liab = Liability.objects.filter(recurring_template=tmpl, status=Liability.ACTIVE).first()
+    if liab is None:
+        return False
+    liab.apply_payment(tx.amount, tx.date, create_transaction=False)
+    if liab.status == Liability.CLOSED:
+        tmpl.is_active = False
+        tmpl.save(update_fields=['is_active', 'updated_at'])
+        return True
+    return False
 
 
 def run_recurring_templates(

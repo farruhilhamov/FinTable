@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load fin_tags %}
+{% block title %}Бюджеты — FinTable{% endblock %}
+{% block content %}
+<div class="nm-section-title">
+  <h2 class="mb-0">Бюджеты</h2>
+  <a href="{% url 'budget_create' %}" class="btn btn-primary btn-sm">+ Добавить</a>
+</div>
+<p class="text-muted small">Месячные лимиты расходов по категориям. Период: {{ date_from|date:"d.m" }} — {{ date_to|date:"d.m.Y" }}.</p>
+
+{% if rows %}
+<div class="row g-3">
+{% for r in rows %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card shadow-sm h-100 {% if r.status == 'over' %}border-danger{% elif r.status == 'warning' %}border-warning{% endif %}">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <h5 class="card-title mb-1">{{ r.category }}</h5>
+          <span class="badge {% if r.status == 'over' %}bg-danger{% elif r.status == 'warning' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ r.pct }}%</span>
+        </div>
+        <div class="progress mb-2" style="height:10px">
+          <div class="progress-bar {% if r.status == 'over' %}bg-danger{% elif r.status == 'warning' %}bg-warning{% else %}bg-success{% endif %}" style="width:{{ r.bar_pct }}%"></div>
+        </div>
+        <div class="small">
+          Потрачено <strong>{{ r.spent|money }}</strong> из {{ r.limit|money }} UZS<br>
+          {% if r.left >= 0 %}<span class="text-success">Осталось {{ r.left|money }}</span>{% else %}<span class="text-danger">Превышение {{ r.left|money }}</span>{% endif %}
+        </div>
+        <div class="mt-2 text-end">
+          <a href="{% url 'transactions' %}?category={{ r.budget.category_id }}&type=expense" class="btn btn-sm btn-outline-secondary">Операции</a>
+          <a href="{% url 'budget_edit' r.budget.id %}" class="btn btn-sm btn-outline-secondary">✎</a>
+          <a href="{% url 'budget_delete' r.budget.id %}" class="btn btn-sm btn-outline-danger">✕</a>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted py-4">
+  Бюджетов пока нет. Задайте лимит на «Еда и продукты» или «Кафе и рестораны» — и дашборд покажет, сколько осталось.
+</div>
+{% endif %}
+
+{% if inactive %}
+<h5 class="mt-4">Отключённые</h5>
+<ul class="list-unstyled small">
+  {% for b in inactive %}
+  <li>{{ b.category.name }} — {{ b.limit|money }} UZS
+    <a href="{% url 'budget_edit' b.id %}" class="btn btn-sm btn-outline-secondary">✎</a></li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

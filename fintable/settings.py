@@ -35,6 +35,8 @@ INSTALLED_APPS = [
     'analytics',
     'importexport',
     'onboarding',
+    'liabilities',
+    'goals',
 ]
 
 MIDDLEWARE = [

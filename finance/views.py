@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.contrib import messages
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -10,10 +10,12 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils import timezone
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView, View
 
-from .forms import AccountForm, CategoryForm, RecurringTemplateForm, TransactionForm
+from .forms import (
+    AccountForm, BudgetForm, CategoryForm, RecurringTemplateForm, TransactionForm, TransferForm,
+)
 from .mixins import OwnerQuerySetMixin
 from .services import run_recurring_templates
-from .models import Account, Category, RecurringTemplate, Transaction
+from .models import Account, Budget, Category, RecurringTemplate, Transaction
 
 
 # ---------- Транзакции ----------
@@ -36,6 +38,12 @@ class TransactionListView(OwnerQuerySetMixin, ListView):
         category = get.get('category')
         account = get.get('account')
         ttype = get.get('type')
+        q = (get.get('q') or '').strip()
+        if q:
+            qs = qs.filter(Q(description__icontains=q) | Q(tags__icontains=q) | Q(category__name__icontains=q))
+        if ttype == 'transfer':
+            qs = qs.filter(category__is_transfer=True)
+            ttype = ''
         if date_from:
             qs = qs.filter(date__gte=date_from)
         if date_to:
@@ -54,7 +62,7 @@ class TransactionListView(OwnerQuerySetMixin, ListView):
         default_from = date(today.year, today.month, 1).isoformat()
         default_to = today.isoformat()
         ctx['accounts'] = Account.objects.filter(user=self.request.user, is_active=True)
-        ctx['categories'] = Category.objects.filter(user=self.request.user, is_active=True)
+        ctx['categories'] = Category.objects.filter(user=self.request.user, is_active=True, is_transfer=False)
         ctx['type_choices'] = Transaction.TYPE_CHOICES
         ctx['filters'] = {
             'date_from': self.request.GET.get('date_from', default_from),
@@ -62,6 +70,16 @@ class TransactionListView(OwnerQuerySetMixin, ListView):
             'category': self.request.GET.get('category', ''),
             'account': self.request.GET.get('account', ''),
             'type': self.request.GET.get('type', ''),
+            'q': self.request.GET.get('q', ''),
+        }
+        agg = self.object_list.exclude(category__is_transfer=True).aggregate(
+            income=Sum('amount', filter=Q(type=Transaction.INCOME), default=Decimal('0')),
+            expense=Sum('amount', filter=Q(type=Transaction.EXPENSE), default=Decimal('0')),
+        )
+        ctx['totals'] = {
+            'income': agg['income'] or Decimal('0'),
+            'expense': agg['expense'] or Decimal('0'),
+            'net': (agg['income'] or Decimal('0')) - (agg['expense'] or Decimal('0')),
         }
         return ctx
 
@@ -71,23 +89,77 @@ class TransactionCreateView(OwnerQuerySetMixin, CreateView):
     form_class = TransactionForm
     template_name = 'finance/transaction_form.html'
 
+    def get_template_names(self):
+        if 'HX-Request' in self.request.headers or self.request.GET.get('modal'):
+            return ['finance/_transaction_modal.html']
+        return [self.template_name]
+
     def get_form_kwargs(self):
         kw = super().get_form_kwargs()
         kw['user'] = self.request.user
         return kw
 
+    def get_initial(self):
+        """Быстрый ввод: подставляем последние использованные счёт/категорию/тип,
+        либо копируем существующую операцию (?copy=<id>)."""
+        initial = super().get_initial()
+        initial['date'] = timezone.localdate()
+        copy_id = self.request.GET.get('copy')
+        if copy_id:
+            src = Transaction.objects.filter(user=self.request.user, pk=copy_id).first()
+            if src is not None:
+                initial.update({
+                    'account': src.account_id, 'category': src.category_id,
+                    'amount': src.amount, 'type': src.type,
+                    'description': src.description, 'tags': src.tags,
+                })
+                return initial
+        last = self.request.session.get('last_tx') or {}
+        for k in ('account', 'category', 'type'):
+            if last.get(k):
+                initial[k] = last[k]
+        return initial
+
     def form_valid(self, form):
-        form.save()
+        tx = form.save()
+        self.request.session['last_tx'] = {
+            'account': tx.account_id, 'category': tx.category_id, 'type': tx.type,
+        }
         messages.success(self.request, 'Транзакция добавлена.')
         if 'HX-Request' in self.request.headers:
-            return HttpResponse('', status=204, headers={'HX-Redirect': '/finance/transactions/'})
+            back = self.request.headers.get('HX-Current-URL') or '/finance/transactions/'
+            return HttpResponse('', status=204, headers={'HX-Redirect': back})
         return redirect('/finance/transactions/')
+
+
+class TransferCreateView(LoginRequiredMixin, View):
+    """Перевод между счетами: две связанные операции, не влияющие на P&L."""
+    template_name = 'finance/transfer_form.html'
+
+    def get(self, request):
+        form = TransferForm(user=request.user, initial={'from_account': request.GET.get('from')})
+        return render(request, self.template_name, {'form': form})
+
+    def post(self, request):
+        form = TransferForm(request.POST, user=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Перевод выполнен.')
+            return redirect('/finance/transactions/')
+        return render(request, self.template_name, {'form': form})
 
 
 class TransactionUpdateView(OwnerQuerySetMixin, UpdateView):
     model = Transaction
     form_class = TransactionForm
     template_name = 'finance/transaction_form.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        obj = self.get_object() if request.user.is_authenticated else None
+        if obj is not None and obj.is_transfer:
+            messages.info(request, 'Перевод нельзя редактировать: удалите его и создайте заново.')
+            return redirect('/finance/transactions/')
+        return super().dispatch(request, *args, **kwargs)
 
     def get_form_kwargs(self):
         kw = super().get_form_kwargs()
@@ -101,6 +173,15 @@ class TransactionUpdateView(OwnerQuerySetMixin, UpdateView):
 class TransactionDeleteView(OwnerQuerySetMixin, DeleteView):
     model = Transaction
     template_name = 'finance/confirm_delete.html'
+
+    def form_valid(self, form):
+        # Перевод удаляется целиком: обе парные операции.
+        pair = self.object.transfer_pair
+        if pair is None:
+            pair = getattr(self.object, 'transfer_counterpart', None)
+        if pair is not None:
+            pair.delete()
+        return super().form_valid(form)
 
     def get_success_url(self):
         return '/finance/transactions/'
@@ -204,7 +285,7 @@ class CategoryListView(OwnerQuerySetMixin, ListView):
     context_object_name = 'categories'
 
     def get_queryset(self):
-        return super().get_queryset().order_by('type', 'name')
+        return super().get_queryset().filter(is_transfer=False).order_by('type', 'name')
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -324,3 +405,60 @@ class RecurringDeleteView(OwnerQuerySetMixin, DeleteView):
 
     def get_success_url(self):
         return '/finance/recurring/'
+
+
+# ---------- Бюджеты ----------
+
+class BudgetListView(OwnerQuerySetMixin, ListView):
+    model = Budget
+    template_name = 'finance/budgets.html'
+    context_object_name = 'budgets'
+
+    def get_context_data(self, **kwargs):
+        from analytics.services import budget_status, month_to_date_range
+        ctx = super().get_context_data(**kwargs)
+        date_from, date_to = month_to_date_range()
+        ctx['rows'] = budget_status(self.request.user, date_from, date_to)
+        ctx['inactive'] = Budget.objects.filter(user=self.request.user, is_active=False).select_related('category')
+        ctx['date_from'], ctx['date_to'] = date_from, date_to
+        return ctx
+
+
+class BudgetCreateView(OwnerQuerySetMixin, CreateView):
+    model = Budget
+    form_class = BudgetForm
+    template_name = 'finance/budget_form.html'
+
+    def get_form_kwargs(self):
+        kw = super().get_form_kwargs()
+        kw['user'] = self.request.user
+        return kw
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Бюджет создан.')
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return '/finance/budgets/'
+
+
+class BudgetUpdateView(OwnerQuerySetMixin, UpdateView):
+    model = Budget
+    form_class = BudgetForm
+    template_name = 'finance/budget_form.html'
+
+    def get_form_kwargs(self):
+        kw = super().get_form_kwargs()
+        kw['user'] = self.request.user
+        return kw
+
+    def get_success_url(self):
+        return '/finance/budgets/'
+
+
+class BudgetDeleteView(OwnerQuerySetMixin, DeleteView):
+    model = Budget
+    template_name = 'finance/confirm_delete.html'
+
+    def get_success_url(self):
+        return '/finance/budgets/'

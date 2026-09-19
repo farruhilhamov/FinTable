@@ -8,7 +8,7 @@
 </div>
 <div class="table-responsive">
   <table class="table table-hover align-middle">
-    <thead class="table-light"><tr><th>Название</th><th>Тело</th><th>Ставка</th><th>Капитализация</th><th>Накоплено</th><th>Баланс</th><th>Статус</th><th></th></tr></thead>
+    <thead class="table-light"><tr><th>Название</th><th>Тело</th><th>Ставка</th><th>Капитализация</th><th>Накоплено</th><th>Баланс</th><th>Срок</th><th>Статус</th><th></th></tr></thead>
     <tbody>
     {% for d in deposits %}
       <tr>
@@ -18,14 +18,25 @@
         <td>{{ d.get_capitalization_type_display }}</td>
         <td class="text-success">{{ d.accrued|money }}</td>
         <td class="fw-semibold">{{ d.balance|money }}</td>
+        <td class="small">
+          {% if d.end_date %}{{ d.end_date|date:"d.m.Y" }}
+            {% if d.days_left is not None %}<br>{% if d.days_left <= 0 %}<span class="text-warning">срок наступил</span>{% elif d.days_left <= 14 %}<span class="text-warning">через {{ d.days_left }} дн.</span>{% else %}<span class="text-muted">через {{ d.days_left }} дн.</span>{% endif %}{% endif %}
+            {% if d.auto_close and d.status == 'active' %}<br><span class="text-muted">авто-закрытие</span>{% endif %}
+          {% else %}<span class="text-muted">бессрочно</span>{% endif %}
+        </td>
         <td><span class="badge {% if d.status == 'active' %}bg-success{% else %}bg-secondary{% endif %}">{{ d.get_status_display }}</span></td>
         <td class="text-end">
           <a href="{% url 'deposit_edit' d.id %}" class="btn btn-sm btn-outline-secondary">✎</a>
-          {% if d.status == 'active' %}<form method="post" action="{% url 'deposit_close' d.id %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-outline-warning">закрыть</button></form>{% endif %}
+          {% if d.status == 'active' %}
+            <form method="post" action="{% url 'deposit_close' d.id %}" class="d-inline">{% csrf_token %}
+              {% if d.account %}<button class="btn btn-sm btn-outline-warning" name="payout" value="1" title="Закрыть и вернуть тело + проценты на счёт «{{ d.account.name }}»">закрыть → на счёт</button>{% endif %}
+              <button class="btn btn-sm btn-outline-secondary" title="Закрыть без операций по счёту">закрыть</button>
+            </form>
+          {% endif %}
           <a href="{% url 'deposit_delete' d.id %}" class="btn btn-sm btn-outline-danger">✕</a>
         </td>
       </tr>
-    {% empty %}<tr><td colspan="8" class="text-center text-muted">вкладов нет</td></tr>{% endfor %}
+    {% empty %}<tr><td colspan="9" class="text-center text-muted">вкладов нет</td></tr>{% endfor %}
     </tbody>
   </table>
 </div>

@@ -129,6 +129,7 @@ class DefaultCategoriesTest(TestCase):
     def test_default_created_on_signup(self):
         u = _user('cats@x.com')
         cats = Category.objects.filter(user=u)
+        cats = cats.filter(is_transfer=False)
         self.assertEqual(cats.count(), 18)  # 12 расход + 6 доход
         self.assertTrue(cats.filter(name='Еда и продукты', type=Category.EXPENSE).exists())
         self.assertTrue(cats.filter(name='Зарплата', type=Category.INCOME).exists())

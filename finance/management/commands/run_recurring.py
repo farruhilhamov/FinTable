@@ -43,3 +43,10 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(prefix + report.summary()))
         for err in report.errors:
             self.stderr.write(self.style.WARNING(err))
+
+        if not opts['dry_run']:
+            from deposits.services import close_matured_deposits
+            dep = close_matured_deposits(today=target)
+            self.stdout.write(self.style.SUCCESS(f'Закрыто вкладов по сроку: {dep["closed"]}'))
+            for err in dep['errors']:
+                self.stderr.write(self.style.WARNING(err))

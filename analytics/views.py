@@ -9,6 +9,7 @@ from analytics.services import (
     monthly_income_expense, category_breakdown,
     month_to_date_range, net_worth_breakdown, explain_pnl_change,
     pnl_components_history, period_label,
+    budget_status, upcoming_recurring, savings_rate, savings_rate_history,
 )
 from finance.models import Transaction
 
@@ -39,9 +40,9 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         # --- Net Worth и его разбивка ---
         ctx['net_worth'] = calculate_net_worth(user)
         ctx['nw_breakdown'] = net_worth_breakdown(user)
-        ctx['nw_breakdown_labels'] = [c['label'] for c in ctx['nw_breakdown']['components']]
-        ctx['nw_breakdown_values'] = [str(c['value']) for c in ctx['nw_breakdown']['components']]
-        ctx['nw_breakdown_urls'] = [c['url'] for c in ctx['nw_breakdown']['components']]
+        ctx['nw_breakdown_labels'] = [c['label'] for c in ctx['nw_breakdown']['pie_components']]
+        ctx['nw_breakdown_values'] = [str(c['value']) for c in ctx['nw_breakdown']['pie_components']]
+        ctx['nw_breakdown_urls'] = [c['url'] for c in ctx['nw_breakdown']['pie_components']]
 
         # --- P&L за выбранный период (по умолчанию месяц-к-дате) ---
         ctx['pnl'] = calculate_pnl(user, date_from, date_to)
@@ -67,6 +68,13 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             .select_related('account', 'category')
             .order_by('-date', '-created_at')[:10]
         )
+
+        # --- Бюджеты, ближайшие платежи, норма сбережений ---
+        ctx['budgets'] = budget_status(user, date_from, date_to)
+        ctx['upcoming'] = upcoming_recurring(user, days=7, today=today)
+        ctx['savings'] = savings_rate(user, date_from, date_to)
+        from goals.views import goal_rows
+        ctx['goals'] = goal_rows(user, today)[:4]
         # Виджет подсказки о незавершённом онбординге
         from onboarding.models import UserProfile
         from finance.models import Account
@@ -102,4 +110,9 @@ class StatsView(LoginRequiredMixin, TemplateView):
         ctx['income_pie_values'] = [str(c['total']) for c in ctx['income_by_cat']]
         ctx['expense_pie_labels'] = [c['category'] for c in ctx['expense_by_cat']]
         ctx['expense_pie_values'] = [str(c['total']) for c in ctx['expense_by_cat']]
+        ctx['savings'] = savings_rate(user, date_from, date_to)
+        sr = savings_rate_history(user, months=12)
+        ctx['savings_labels'] = [r['month'] for r in sr]
+        ctx['savings_values'] = [str(r['rate']) if r['rate'] is not None else 'null' for r in sr]
+        ctx['budgets'] = budget_status(user, date_from, date_to)
         return ctx

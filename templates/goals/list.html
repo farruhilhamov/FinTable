@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load fin_tags %}
+{% block title %}Цели — FinTable{% endblock %}
+{% block content %}
+<div class="nm-section-title">
+  <h2 class="mb-0">Цели накопления</h2>
+  <a href="{% url 'goal_create' %}" class="btn btn-primary btn-sm">+ Добавить</a>
+</div>
+
+<div class="row g-3">
+{% for r in rows %}
+  {% with g=r.goal %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-body d-flex flex-column">
+        <div class="d-flex justify-content-between align-items-start">
+          <h5 class="card-title mb-0">{{ g.name }}</h5>
+          <span class="badge {% if r.pct >= 100 %}bg-success{% elif r.pct >= 50 %}bg-primary{% else %}bg-secondary{% endif %}">{{ r.pct }}%</span>
+        </div>
+        <div class="small text-muted mb-2">
+          {% if g.account %}на счёте «{{ g.account.name }}»{% elif g.deposit %}на вкладе «{{ g.deposit.name }}»{% else %}вручную{% endif %}
+          {% if g.deadline %} · до {{ g.deadline|date:"d.m.Y" }}{% endif %}
+        </div>
+        <div class="stat-value">{{ r.current|money }} <span class="small text-muted">/ {{ g.target_amount|money }}</span></div>
+        <div class="progress my-2" style="height:8px">
+          <div class="progress-bar {% if r.pct >= 100 %}bg-success{% endif %}" style="width:{{ r.pct }}%"></div>
+        </div>
+        <div class="small mb-2">
+          Осталось <strong>{{ r.remaining|money }}</strong> UZS
+          {% if r.months_left is not None %}
+            {% if r.months_left == 0 %}<br><span class="text-danger">срок наступил</span>
+            {% else %}<br>{{ r.months_left }} мес. · нужно откладывать <strong>{{ r.required_monthly|money }}</strong> в месяц{% endif %}
+          {% endif %}
+        </div>
+        <div class="mt-auto">
+          {% if not g.account and not g.deposit %}
+          <form method="post" action="{% url 'goal_topup' g.id %}" class="input-group input-group-sm mb-2">{% csrf_token %}
+            <input type="number" step="0.01" name="amount" placeholder="+ сумма" class="form-control" required>
+            <button class="btn btn-outline-primary" type="submit">Добавить</button>
+          </form>
+          {% endif %}
+          <a href="{% url 'goal_edit' g.id %}" class="btn btn-sm btn-outline-secondary">✎</a>
+          <a href="{% url 'goal_delete' g.id %}" class="btn btn-sm btn-outline-danger">✕</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endwith %}
+{% empty %}
+  <div class="col-12 text-center text-muted py-4">Целей пока нет. «Подушка безопасности на 3 месяца» — хорошее начало.</div>
+{% endfor %}
+</div>
+
+{% if done %}
+<h5 class="mt-4">Достигнутые 🎉</h5>
+<ul class="list-unstyled small">
+  {% for g in done %}<li>{{ g.name }} — {{ g.target_amount|money }} UZS <a href="{% url 'goal_delete' g.id %}" class="btn btn-sm btn-outline-danger">✕</a></li>{% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

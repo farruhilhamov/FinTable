@@ -12,6 +12,8 @@ urlpatterns = [
     path('analytics/', include('analytics.urls')),
     path('importexport/', include('importexport.urls')),
     path('', include('onboarding.urls')),
+    path('liabilities/', include('liabilities.urls')),
+    path('goals/', include('goals.urls')),
 ]
 
 if settings.DEBUG:

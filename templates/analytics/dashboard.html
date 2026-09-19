@@ -79,6 +79,93 @@
   </div>
 </div>
 
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card card-stat shadow-sm h-100">
+      <div class="card-body">
+        <div class="text-muted small">Норма сбережений за {{ pnl_period_label }}</div>
+        {% if savings.rate is not None %}
+          <div class="stat-value {% if savings.rate >= 20 %}text-success{% elif savings.rate >= 0 %}text-warning{% else %}text-danger{% endif %}">{{ savings.rate }}%</div>
+          <div class="small text-muted">доходы {{ savings.income|money }} · расходы {{ savings.expense|money }} · отложено {{ savings.saved|money }}</div>
+          <div class="small text-muted mt-1">Ориентир здоровых финансов — 20% и выше.</div>
+        {% else %}
+          <div class="stat-value text-muted">—</div>
+          <div class="small text-muted">Нет доходов за период.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card card-stat shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between">
+          <div class="text-muted small">Бюджеты</div>
+          <a href="{% url 'budgets' %}" class="small">все</a>
+        </div>
+        {% for b in budgets|slice:":5" %}
+          <div class="mt-2">
+            <div class="d-flex justify-content-between small">
+              <span>{{ b.category }}</span>
+              <span class="{% if b.status == 'over' %}text-danger{% elif b.status == 'warning' %}text-warning{% endif %}">{{ b.spent|money }} / {{ b.limit|money }}</span>
+            </div>
+            <div class="progress" style="height:6px">
+              <div class="progress-bar {% if b.status == 'over' %}bg-danger{% elif b.status == 'warning' %}bg-warning{% else %}bg-success{% endif %}" style="width:{{ b.bar_pct }}%"></div>
+            </div>
+          </div>
+        {% empty %}
+          <div class="small text-muted mt-2">Лимитов нет. <a href="{% url 'budget_create' %}">Задать бюджет</a></div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card card-stat shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between">
+          <div class="text-muted small">Ближайшие платежи (7 дней)</div>
+          <a href="{% url 'recurring' %}" class="small">все</a>
+        </div>
+        {% if upcoming.overdue %}
+          <div class="small text-warning mt-1">Не созданы операции: {{ upcoming.overdue }} — <a href="{% url 'recurring' %}">выполнить</a></div>
+        {% endif %}
+        <ul class="list-unstyled small mb-1 mt-2">
+          {% for u in upcoming.items %}
+            <li class="d-flex justify-content-between">
+              <span>{{ u.date|date:"d.m" }} · {{ u.template.category.name }}{% if u.template.description %} <span class="text-muted">— {{ u.template.description|truncatechars:24 }}</span>{% endif %}</span>
+              <span class="{% if u.template.type == 'income' %}text-success{% else %}text-danger{% endif %}">{% if u.template.type == 'income' %}+{% else %}−{% endif %}{{ u.template.amount|money }}</span>
+            </li>
+          {% empty %}
+            <li class="text-muted">Регулярных платежей на неделе нет.</li>
+          {% endfor %}
+        </ul>
+        {% if upcoming.items %}
+          <div class="small text-muted">Итого за неделю: <span class="{% if upcoming.net >= 0 %}text-success{% else %}text-danger{% endif %}">{{ upcoming.net|money }}</span> UZS</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if goals %}
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between">
+      <h5 class="card-title mb-2">Цели</h5>
+      <a href="{% url 'goals' %}" class="small">все</a>
+    </div>
+    <div class="row g-3">
+      {% for r in goals %}
+      <div class="col-md-6 col-lg-3">
+        <div class="d-flex justify-content-between small"><span>{{ r.goal.name }}</span><span>{{ r.pct }}%</span></div>
+        <div class="progress my-1" style="height:6px"><div class="progress-bar {% if r.pct >= 100 %}bg-success{% endif %}" style="width:{{ r.pct }}%"></div></div>
+        <div class="small text-muted">{{ r.current|money }} / {{ r.goal.target_amount|money }}{% if r.required_monthly %} · {{ r.required_monthly|money }}/мес{% endif %}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <div class="card shadow-sm mb-4">
   <div class="card-body">
     <h5 class="card-title">Динамика капитала (12 мес.)</h5>
@@ -92,7 +179,7 @@
     <ul class="list-unstyled mb-0 small">
       {% for t in recent_transactions %}
         <li>
-          <span class="badge {% if t.type == 'income' %}bg-success{% else %}bg-danger{% endif %}">{{ t.get_type_display }}</span>
+          {% if t.is_transfer %}<span class="badge bg-secondary">Перевод</span>{% else %}<span class="badge {% if t.type == 'income' %}bg-success{% else %}bg-danger{% endif %}">{{ t.get_type_display }}</span>{% endif %}
           {{ t.amount|money }} — {{ t.category.name }} <span class="text-muted">{{ t.date|date:"d.m" }}</span>
         </li>
       {% empty %}

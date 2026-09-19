@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Account, Category, RecurringTemplate, Transaction
+from .models import Account, Budget, Category, RecurringTemplate, Transaction
 
 
 @admin.register(Account)
@@ -39,3 +39,9 @@ class RecurringTemplateAdmin(admin.ModelAdmin):
         self.message_user(request, report.summary())
         for err in report.errors:
             self.message_user(request, err, level='warning')
+
+
+@admin.register(Budget)
+class BudgetAdmin(admin.ModelAdmin):
+    list_display = ('category', 'limit', 'user', 'is_active')
+    list_filter = ('is_active',)

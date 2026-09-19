@@ -76,6 +76,12 @@ class Category(TimeStampedModel):
     type = models.CharField('Тип', max_length=10, choices=TYPE_CHOICES)
     is_default = models.BooleanField('Системная по умолчанию', default=False)
     is_active = models.BooleanField('Активна', default=True)
+    is_transfer = models.BooleanField(
+        'Техническая категория переводов', default=False,
+        help_text='Операции с этой категорией не учитываются в доходах/расходах и P&L.',
+    )
+
+    TRANSFER_NAME = 'Перевод между счетами'
 
     class Meta:
         ordering = ['type', 'name']
@@ -93,6 +99,30 @@ class Category(TimeStampedModel):
     def archive(self):
         self.is_active = False
         self.save(update_fields=['is_active', 'updated_at'])
+
+    @classmethod
+    def get_or_create_system(cls, user, name: str, ctype: str):
+        """Категория пользователя по имени/типу; создаётся при отсутствии (для авто-операций)."""
+        cat, _ = cls.objects.get_or_create(user=user, name=name, type=ctype, defaults={'is_active': True})
+        if not cat.is_active:
+            cat.is_active = True
+            cat.save(update_fields=['is_active', 'updated_at'])
+        return cat
+
+    @classmethod
+    def transfer_pair(cls, user):
+        """Технические категории «Перевод между счетами» (расход/доход) пользователя."""
+        out = {}
+        for ctype in (cls.EXPENSE, cls.INCOME):
+            cat, _ = cls.objects.get_or_create(
+                user=user, name=cls.TRANSFER_NAME, type=ctype,
+                defaults={'is_transfer': True, 'is_active': True},
+            )
+            if not cat.is_transfer:
+                cat.is_transfer = True
+                cat.save(update_fields=['is_transfer', 'updated_at'])
+            out[ctype] = cat
+        return out
 
 
 class Transaction(TimeStampedModel):
@@ -122,6 +152,15 @@ class Transaction(TimeStampedModel):
         'RecurringTemplate', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='transactions', verbose_name='Регулярный шаблон',
     )
+    tags = models.CharField(
+        'Теги', max_length=255, blank=True,
+        help_text='Через запятую: такси, работа, отпуск',
+    )
+    receipt = models.ImageField('Чек', upload_to='receipts/%Y/%m/', blank=True, null=True)
+    transfer_pair = models.OneToOneField(
+        'self', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='transfer_counterpart', verbose_name='Парная операция перевода',
+    )
 
     class Meta:
         ordering = ['-date', '-created_at']
@@ -137,10 +176,22 @@ class Transaction(TimeStampedModel):
     def __str__(self):
         return f'{self.date} {self.get_type_display()} {self.amount}'
 
+    @property
+    def is_transfer(self) -> bool:
+        return self.transfer_pair_id is not None or bool(
+            self.category_id and self.category.is_transfer
+        )
+
+    @property
+    def tag_list(self):
+        return [t.strip() for t in (self.tags or '').split(',') if t.strip()]
+
     def clean(self):
         super().clean()
         if self.category_id and self.category.type != self.type:
             raise ValidationError({'type': 'Тип транзакции должен совпадать с типом категории'})
+        if self.tags:
+            self.tags = ', '.join(dict.fromkeys(self.tag_list))
 
     def save(self, *args, **kwargs):
         if self.category_id and self.category.type != self.type:
@@ -249,3 +300,43 @@ class RecurringTemplate(TimeStampedModel):
     def is_overdue(self) -> bool:
         """Есть ли пропущенные (не созданные) операции на сегодня."""
         return bool(self.due_dates(timezone.localdate()))
+
+
+class Budget(TimeStampedModel):
+    """Месячный лимит расходов по категории (действует каждый месяц, пока активен)."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='budgets'
+    )
+    category = models.ForeignKey(
+        Category, on_delete=models.PROTECT, related_name='budgets',
+        limit_choices_to={'type': Category.EXPENSE},
+    )
+    limit = models.DecimalField(
+        'Лимит в месяц', max_digits=18, decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+    )
+    is_active = models.BooleanField('Активен', default=True)
+
+    class Meta:
+        ordering = ['category__name']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'category'], name='unique_budget_per_category'),
+        ]
+
+    def __str__(self):
+        return f'{self.category.name}: {self.limit} / мес'
+
+    def clean(self):
+        super().clean()
+        if self.category_id and self.category.type != Category.EXPENSE:
+            raise ValidationError({'category': 'Бюджет задаётся только для категорий расходов'})
+        if self.category_id and self.user_id and self.category.user_id != self.user_id:
+            raise ValidationError({'category': 'Категория принадлежит другому пользователю'})
+
+    def spent(self, date_from: date, date_to: date) -> Decimal:
+        agg = Transaction.objects.filter(
+            user_id=self.user_id, category_id=self.category_id, type=Transaction.EXPENSE,
+            date__gte=date_from, date__lte=date_to,
+        ).aggregate(total=Sum('amount', default=Decimal('0')))
+        return agg['total'] or Decimal('0')

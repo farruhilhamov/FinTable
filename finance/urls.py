@@ -7,6 +7,11 @@ urlpatterns = [
     path('transactions/new/', views.TransactionCreateView.as_view(), name='transaction_create'),
     path('transactions/<int:pk>/edit/', views.TransactionUpdateView.as_view(), name='transaction_edit'),
     path('transactions/<int:pk>/delete/', views.TransactionDeleteView.as_view(), name='transaction_delete'),
+    path('transfers/new/', views.TransferCreateView.as_view(), name='transfer_create'),
+    path('budgets/', views.BudgetListView.as_view(), name='budgets'),
+    path('budgets/new/', views.BudgetCreateView.as_view(), name='budget_create'),
+    path('budgets/<int:pk>/edit/', views.BudgetUpdateView.as_view(), name='budget_edit'),
+    path('budgets/<int:pk>/delete/', views.BudgetDeleteView.as_view(), name='budget_delete'),
 
     path('accounts/', views.AccountListView.as_view(), name='accounts'),
     path('accounts/new/', views.AccountCreateView.as_view(), name='account_create'),

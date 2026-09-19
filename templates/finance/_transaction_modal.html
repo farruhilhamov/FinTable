@@ -1,0 +1,21 @@
+{% load crispy_forms_tags %}
+<div class="modal-dialog modal-dialog-centered">
+  <div class="modal-content">
+    <form method="post" action="{% url 'transaction_create' %}" enctype="multipart/form-data"
+          hx-post="{% url 'transaction_create' %}" hx-target="#quickAddContent" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Быстрая операция</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+      </div>
+      <div class="modal-body">
+        {{ form|crispy }}
+      </div>
+      <div class="modal-footer">
+        <a href="{% url 'transfer_create' %}" class="btn btn-outline-secondary me-auto">⇄ Перевод</a>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button class="btn btn-primary" type="submit">Сохранить</button>
+      </div>
+    </form>
+  </div>
+</div>

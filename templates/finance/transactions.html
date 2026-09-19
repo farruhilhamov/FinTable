@@ -4,7 +4,10 @@
 {% block content %}
 <div class="nm-section-title">
   <h2 class="mb-0">Транзакции</h2>
-  <a href="{% url 'transaction_create' %}" class="btn btn-primary btn-sm">+ Добавить</a>
+  <div class="d-flex gap-2">
+    <a href="{% url 'transfer_create' %}" class="btn btn-outline-primary btn-sm">⇄ Перевод</a>
+    <a href="{% url 'transaction_create' %}" class="btn btn-primary btn-sm">+ Добавить</a>
+  </div>
 </div>
 
 <form method="get" class="nm-inset p-3 mb-3">
@@ -23,15 +26,24 @@
         {% for c in categories %}<option value="{{ c.id }}" {% if filters.category == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
       </select>
     </div>
-    <div class="col-md-1">
+    <div class="col-md-2">
       <select name="type" class="form-select form-select-sm">
         <option value="">Все</option>
         {% for v, label in type_choices %}<option value="{{ v }}" {% if filters.type == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        <option value="transfer" {% if filters.type == 'transfer' %}selected{% endif %}>Переводы</option>
       </select>
     </div>
-    <div class="col-md-1"><button class="btn btn-primary btn-sm w-100">Фильтр</button></div>
+    <div class="col-md-9 col-lg-4"><input type="search" name="q" value="{{ filters.q }}" placeholder="Поиск: описание, тег, категория" class="form-control form-control-sm"></div>
+    <div class="col-md-3 col-lg-2"><button class="btn btn-primary btn-sm w-100">Фильтр</button></div>
   </div>
 </form>
+
+<div class="d-flex flex-wrap gap-3 small mb-2">
+  <span>Доходы: <strong class="text-success">{{ totals.income|money }}</strong></span>
+  <span>Расходы: <strong class="text-danger">{{ totals.expense|money }}</strong></span>
+  <span>Итого: <strong class="{% if totals.net >= 0 %}text-success{% else %}text-danger{% endif %}">{{ totals.net|money }}</strong> UZS</span>
+  <span class="text-muted">(без переводов)</span>
+</div>
 
 <div class="table-responsive">
   <table class="table table-hover align-middle">
@@ -40,14 +52,25 @@
     </thead>
     <tbody>
     {% for t in transactions %}
-      <tr>
+      <tr {% if t.is_transfer %}class="text-muted"{% endif %}>
         <td>{{ t.date|date:"d.m.Y" }}</td>
-        <td><span class="badge {% if t.type == 'income' %}bg-success{% else %}bg-danger{% endif %}">{{ t.get_type_display }}</span></td>
+        <td>
+          {% if t.is_transfer %}
+            <span class="badge bg-secondary">Перевод</span>
+          {% else %}
+            <span class="badge {% if t.type == 'income' %}bg-success{% else %}bg-danger{% endif %}">{{ t.get_type_display }}</span>
+          {% endif %}
+        </td>
         <td>{{ t.category.name }}</td>
         <td>{{ t.account.name }}</td>
-        <td class="text-end {% if t.type == 'income' %}text-success{% else %}text-danger{% endif %}">{{ t.amount|money }}</td>
-        <td>{{ t.description }}</td>
-        <td class="text-end">
+        <td class="text-end {% if t.is_transfer %}{% elif t.type == 'income' %}text-success{% else %}text-danger{% endif %}">{% if t.type == 'income' %}+{% else %}−{% endif %}{{ t.amount|money }}</td>
+        <td>
+          {{ t.description }}
+          {% for tag in t.tag_list %}<a href="?q={{ tag|urlencode }}" class="badge rounded-pill bg-light text-dark text-decoration-none border">#{{ tag }}</a> {% endfor %}
+          {% if t.receipt %}<a href="{{ t.receipt.url }}" target="_blank" title="Чек">🧾</a>{% endif %}
+        </td>
+        <td class="text-end text-nowrap">
+          {% if not t.is_transfer %}<a href="{% url 'transaction_create' %}?copy={{ t.id }}" class="btn btn-sm btn-outline-secondary" title="Повторить">⧉</a>{% endif %}
           <a href="{% url 'transaction_edit' t.id %}" class="btn btn-sm btn-outline-secondary">✎</a>
           <a href="{% url 'transaction_delete' t.id %}" class="btn btn-sm btn-outline-danger">✕</a>
         </td>
@@ -61,9 +84,9 @@
 
 {% if is_paginated %}
   <nav><ul class="pagination pagination-sm">
-    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">&laquo;</a></li>{% endif %}
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&account={{ filters.account }}&category={{ filters.category }}&type={{ filters.type }}&q={{ filters.q|urlencode }}">&laquo;</a></li>{% endif %}
     <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ paginator.num_pages }}</span></li>
-    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">&raquo;</a></li>{% endif %}
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&account={{ filters.account }}&category={{ filters.category }}&type={{ filters.type }}&q={{ filters.q|urlencode }}">&raquo;</a></li>{% endif %}
   </ul></nav>
 {% endif %}
 {% endblock %}
